@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
+  <style>.back-row { margin: 10px 0; }</style>
   {% block head %}{% endblock %}
 </head>
 <body>
@@ -32,7 +33,7 @@
       </a>
       <a href="/monthly" {% if path == '/monthly' %}class="active"{% endif %}>{{ tr('nav_monthly') }}</a>
       <a href="/poster" {% if path == '/poster' %}class="active"{% endif %}>{{ tr('nav_poster') }}</a>
-      <a href="/report" target="_blank" title="{{ tr('title_report') }}">{{ 'بلاغ عام' if LANG == 'ar' else 'Public Report' }}</a>
+      <a href="/report" title="{{ tr('title_report') }}">{{ 'بلاغ عام' if LANG == 'ar' else 'Public Report' }}</a>
       <a class="lang-toggle" href="?lang={{ 'ar' if LANG == 'en' else 'en' }}">{{ tr('lang_switch') }}</a>
       {% if protected %}<a href="/logout" class="logout">{{ tr('nav_logout') }}</a>{% endif %}
     </nav>
@@ -40,6 +41,9 @@
 </header>
 
 <main class="wrap">
+  <div class="back-row no-print" {% if path == '/' %}hidden{% endif %}>
+    <button class="btn btn-ghost btn-sm" type="button" onclick="goBack()">→ {{ 'رجوع' if LANG == 'ar' else 'Back' }}</button>
+  </div>
   {% for level, msg in flashes %}
   <div class="flash flash-{{ level }}">{{ msg }}</div>
   {% endfor %}
@@ -50,6 +54,13 @@
   {{ ORG_RIGHT }} · {{ DEPARTMENT_NAME }} · {{ HOSPITAL_NAME }} © <span id="yr"></span>
   <script>document.getElementById('yr').textContent = new Date().getFullYear();</script>
 </footer>
+
+<script>
+function goBack() {
+  if (window.history.length > 1) { window.history.back(); }
+  else { window.location.href = '/'; }
+}
+</script>
 
 {% block scripts %}{% endblock %}
 </body>
