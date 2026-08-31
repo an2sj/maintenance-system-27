@@ -14,10 +14,14 @@
 
 import hashlib
 import io
+import json
 import os
 import re
 import secrets
 import shutil
+import smtplib
+import urllib.error
+import urllib.request
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -640,6 +644,368 @@ def media_list(media_str: str) -> list[str]:
     return [p.strip() for p in media_str.split(",") if p.strip()]
 
 
+# ======================================================================= #
+# التصدير (PDF / Excel) للتقرير الشهري + إشعارات البريد/WhatsApp
+# ======================================================================= #
+
+# خط عربي مفتوح المصدر (Noto Naskh Arabic) مضمّن مع المشروع
+PDF_FONT_PATH = STATIC_DIR / "fonts" / "NotoNaskhArabic.ttf"
+
+
+def _pdf_register_fonts():
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    try:
+        pdfmetrics.registerFont(TTFont("Naskh", str(PDF_FONT_PATH)))
+        pdfmetrics.registerFontFamily("Naskh", normal="Naskh", bold="Naskh",
+                                      italic="Naskh", boldItalic="Naskh")
+        return "Naskh"
+    except Exception:
+        return "Helvetica"
+
+
+_FONT_NAME = _pdf_register_fonts()
+
+
+def _ar_shape(text) -> str:
+    """إعادة تشكيل النص العربي وإعادة ترتيبه ليُعرض صحيحاً داخل reportlab."""
+    t = str(text or "")
+    if not t:
+        return ""
+    try:
+        import arabic_reshaper
+        from bidi.algorithm import get_display
+        return get_display(arabic_reshaper.reshape(t))
+    except Exception:
+        return t
+
+
+def _pdf_escape(text) -> str:
+    return (str(text or "").replace("&", "&amp;")
+            .replace("<", "&lt;").replace(">", "&gt;"))
+
+
+def _pdf_cell(text, bold=False, size=8):
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.platypus import Paragraph
+    val = _pdf_escape(_ar_shape(text))
+    if bold:
+        val = f"<b>{val}</b>"
+    return Paragraph(val, ParagraphStyle(
+        "c", fontName=_FONT_NAME, fontSize=size, leading=size + 3,
+        wordWrap="CJK",
+    ))
+
+
+def monthly_pdf_bytes(rows, totals, year, month, by_section) -> bytes:
+    """بناء ملف PDF للتقرير الشهري وإرجاع وحدات البايت."""
+    from reportlab.lib import colors
+    from reportlab.lib.enums import TA_CENTER
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import mm
+    from reportlab.platypus import (Image, Paragraph, SimpleDocTemplate, Spacer,
+                                    Table, TableStyle)
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=landscape(A4),
+        leftMargin=11 * mm, rightMargin=11 * mm,
+        topMargin=11 * mm, bottomMargin=13 * mm,
+        title=f"التقرير الشهري {MONTHS_AR[month - 1]} {year}",
+    )
+    title = ParagraphStyle("t", fontName=_FONT_NAME, fontSize=15, leading=20,
+                           alignment=TA_CENTER)
+    sub = ParagraphStyle("s", fontName=_FONT_NAME, fontSize=8, leading=11,
+                         alignment=TA_CENTER, textColor=colors.HexColor("#64748b"))
+    secl = ParagraphStyle("sec", fontName=_FONT_NAME, fontSize=11, leading=15,
+                          spaceBefore=6, spaceAfter=4)
+
+    total = totals.get("total", len(rows))
+    story = []
+
+    lh_cell = Paragraph(
+        f"<b>{_pdf_escape(_ar_shape(HOSPITAL_NAME))}</b><br/>"
+        f"{_pdf_escape(_ar_shape(ORG_RIGHT))} · {_pdf_escape(_ar_shape(DEPARTMENT_NAME))}",
+        ParagraphStyle("lhc", fontName=_FONT_NAME, fontSize=11, leading=15,
+                       alignment=TA_CENTER),
+    )
+    if LOGO_PATH:
+        story.append(Table(
+            [[Image(str(LOGO_PATH), width=22 * mm, height=22 * mm), lh_cell,
+              Image(str(LOGO_PATH), width=22 * mm, height=22 * mm)]],
+            colWidths=[28 * mm, 144 * mm, 28 * mm],
+        ))
+    else:
+        story.append(Table([[lh_cell]], colWidths=[200 * mm]))
+    story.append(Spacer(1, 4 * mm))
+
+    story.append(Paragraph(_pdf_escape(_ar_shape(
+        f"التقرير الشهري لأوامر العمل — {MONTHS_AR[month - 1]} {year}")), title))
+    story.append(Paragraph(_pdf_escape(_ar_shape("MONTHLY MAINTENANCE REPORT")), sub))
+    story.append(Spacer(1, 3 * mm))
+
+    kpi = Table(
+        [[_pdf_cell("إجمالي الأوامر", True), _pdf_cell("منجزة", True),
+          _pdf_cell("قيد التنفيذ", True), _pdf_cell("بانتظار الاعتماد", True),
+          _pdf_cell("مرفوضة", True), _pdf_cell("نسبة الإنجاز", True)],
+         [_ar_shape(str(total)), _ar_shape(str(totals.get("done", 0))),
+          _ar_shape(str(totals.get("approved", 0))),
+          _ar_shape(str(totals.get("pending", 0))),
+          _ar_shape(str(totals.get("rejected", 0))),
+          _ar_shape(f"{totals.get('rate', 0)}%")]],
+        colWidths=[34 * mm] * 6,
+    )
+    kpi.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0d9488")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTSIZE", (0, 1), (-1, 1), 12),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#cbd5e1")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, 1), [colors.white, colors.HexColor("#f0fdfa")]),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    story.append(kpi)
+
+    story.append(Spacer(1, 5 * mm))
+    story.append(Paragraph(_pdf_escape(_ar_shape("توزيع البلاغات حسب القسم")), secl))
+    dist_rows = [[_pdf_cell("القسم / Type", True), _pdf_cell("العدد", True),
+                  _pdf_cell("النسبة", True)]]
+    for k, v in sorted(by_section.items(), key=lambda kv: -kv[1]):
+        dist_rows.append([
+            _pdf_cell(k), _ar_shape(str(v)),
+            _ar_shape(f"{round(v * 100 / total) if total else 0}%"),
+        ])
+    dt = Table(dist_rows, colWidths=[120 * mm, 40 * mm, 40 * mm])
+    dt.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f766e")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#cbd5e1")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+    ]))
+    story.append(dt)
+
+    story.append(Spacer(1, 5 * mm))
+    story.append(Paragraph(_pdf_escape(_ar_shape("تفاصيل أوامر العمل")), secl))
+    header = [_pdf_cell("#", True), _pdf_cell("رقم الأمر", True),
+              _pdf_cell("التاريخ", True), _pdf_cell("المبلّغ", True),
+              _pdf_cell("الموقع", True), _pdf_cell("القسم", True),
+              _pdf_cell("الفني", True), _pdf_cell("الأولوية", True),
+              _pdf_cell("الحالة", True)]
+    data = [header]
+    for idx, o in enumerate(rows, start=1):
+        data.append([
+            _ar_shape(str(idx)), _pdf_cell(o["order_no"]),
+            _pdf_cell(str(o["created_at"] or "")[:10]),
+            _pdf_cell(o["reporter_name"]),
+            _pdf_cell(o["location"]),
+            _pdf_cell(o["section"]), _pdf_cell(o["technician"]),
+            _pdf_cell(o["priority"]),
+            _pdf_cell(STATUS_META.get(o["status"], (o["status"], "warn"))[0]),
+        ])
+    table = Table(data, colWidths=[9 * mm, 26 * mm, 22 * mm, 30 * mm, 42 * mm,
+                                   26 * mm, 22 * mm, 20 * mm, 24 * mm],
+                  repeatRows=1)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0d9488")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#cbd5e1")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    story.append(table)
+
+    story.append(Spacer(1, 4 * mm))
+    story.append(Paragraph(
+        _pdf_escape(_ar_shape(f"{HOSPITAL_NAME} — {ORG_RIGHT} | Generated: "
+                              f"{now_local().strftime('%Y/%m/%d')}")),
+        ParagraphStyle("ft", fontName=_FONT_NAME, fontSize=7, leading=10,
+                       alignment=TA_CENTER, textColor=colors.HexColor("#64748b")),
+    ))
+
+    doc.build(story)
+    return buf.getvalue()
+
+
+def monthly_xlsx_bytes(rows, totals, year, month, by_section) -> bytes:
+    """بناء مصنّف Excel للتقرير الشهري وإرجاع وحدات البايت."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+    from openpyxl.utils import get_column_letter
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "التقرير الشهري"
+
+    fill = PatternFill("solid", fgColor="0D9488")
+    white = Font(color="FFFFFF", bold=True)
+    center = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    thin = Side(style="thin", color="CBD5E1")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    total = totals.get("total", len(rows))
+    rate = totals.get("rate", 0)
+
+    ws.merge_cells("A1:I1")
+    ws["A1"] = f"{HOSPITAL_NAME} — التقرير الشهري {MONTHS_AR[month - 1]} {year}"
+    ws["A1"].font = Font(bold=True, size=14)
+    ws["A1"].alignment = center
+    ws.row_dimensions[1].height = 28
+
+    ws.merge_cells("A2:I2")
+    ws["A2"] = f"{ORG_RIGHT} · {DEPARTMENT_NAME}"
+    ws["A2"].alignment = center
+    ws["A2"].font = Font(size=9, color="64748B")
+
+    r = 4
+    kpi_headers = ["إجمالي الأوامر", "منجزة", "قيد التنفيذ", "بانتظار الاعتماد",
+                   "مرفوضة", "نسبة الإنجاز"]
+    kpi_vals = [total, totals.get("done", 0), totals.get("approved", 0),
+                totals.get("pending", 0), totals.get("rejected", 0), f"{rate}%"]
+    for i, h in enumerate(kpi_headers, start=1):
+        c = ws.cell(row=r, column=i, value=h)
+        c.fill = fill
+        c.font = white
+        c.alignment = center
+        c.border = border
+    for i, v in enumerate(kpi_vals, start=1):
+        c = ws.cell(row=r + 1, column=i, value=v)
+        c.alignment = center
+        c.border = border
+        c.font = Font(bold=True, size=12)
+
+    r += 3
+    ws.cell(row=r, column=1, value="توزيع البلاغات حسب القسم").font = Font(bold=True)
+    r += 1
+    for i, h in enumerate(["القسم / Type", "العدد", "النسبة"], start=1):
+        c = ws.cell(row=r, column=i, value=h)
+        c.fill = fill
+        c.font = white
+        c.alignment = center
+        c.border = border
+    r += 1
+    for k, v in sorted(by_section.items(), key=lambda kv: -kv[1]):
+        ws.cell(row=r, column=1, value=k).border = border
+        ws.cell(row=r, column=2, value=v).border = border
+        pct = ws.cell(row=r, column=3, value=f"{round(v * 100 / total) if total else 0}%")
+        pct.border = border
+        pct.alignment = center
+        r += 1
+
+    r += 2
+    ws.cell(row=r, column=1, value="سجل أوامر العمل التفصيلي").font = Font(bold=True)
+    r += 1
+    headers = ["م", "رقم الأمر", "التاريخ", "المبلّغ", "الموقع", "القسم",
+               "الفني", "الأولوية", "الحالة"]
+    for i, h in enumerate(headers, start=1):
+        c = ws.cell(row=r, column=i, value=h)
+        c.fill = fill
+        c.font = white
+        c.alignment = center
+        c.border = border
+    r += 1
+    for idx, o in enumerate(rows, start=1):
+        status_txt = STATUS_META.get(o["status"], (o["status"], "warn"))[0]
+        vals = [idx, o["order_no"], str(o["created_at"] or "")[:10],
+                o["reporter_name"], o["location"], o["section"],
+                o["technician"] or "—", o["priority"], status_txt]
+        for i, v in enumerate(vals, start=1):
+            c = ws.cell(row=r, column=i, value=v)
+            c.border = border
+            c.alignment = Alignment(vertical="top", wrap_text=(i == 5))
+        r += 1
+
+    widths = [6, 18, 12, 22, 32, 22, 18, 14, 20]
+    for i, w in enumerate(widths, start=1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+
+    out = io.BytesIO()
+    wb.save(out)
+    return out.getvalue()
+
+
+# ----------------------------------------------------------------------- #
+# إشعارات البريد (SMTP) و WhatsApp — كلها اختيارية وتُتجاهل إن لم تُضبط
+# ----------------------------------------------------------------------- #
+def _env(key: str) -> str:
+    return os.environ.get(key, "").strip()
+
+
+def notify_new_request(order_no: str, section: str, location: str,
+                       reporter_name: str, contact: str, description: str):
+    """إرسال تنبيه فوري (بريد و/أو WhatsApp) عند وصول بلاغ QR جديد."""
+    _notify_email(order_no, section, location, reporter_name, contact, description)
+    _notify_whatsapp(order_no, section, location, reporter_name, contact, description)
+
+
+def _notify_email(order_no, section, location, reporter_name, contact, description):
+    if not (_env("SMTP_USER") and _env("SMTP_PASSWORD") and _env("NOTIFY_TO")):
+        return
+    to = _env("NOTIFY_TO")
+    subject = f"[بلاغ صيانة جديد] {order_no} - {section}"
+    body = (
+        f"بلاغ صيانة جديد 🛠️\n\n"
+        f"رقم الأمر: {order_no}\n"
+        f"الموقع: {location}\n"
+        f"القسم: {section}\n"
+        f"المُبلّغ: {reporter_name} ({contact})\n\n"
+        f"الوصف:\n{description}\n"
+    )
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = _env("SMTP_USER")
+    msg["To"] = to
+    msg.attach(MIMEText(body, "plain", "utf-8"))
+    try:
+        server = smtplib.SMTP(_env("SMTP_HOST") or "smtp.gmail.com",
+                              int(_env("SMTP_PORT") or 587), timeout=20)
+        server.starttls()
+        server.login(_env("SMTP_USER"), _env("SMTP_PASSWORD"))
+        server.sendmail(_env("SMTP_USER"), [to], msg.as_string())
+        server.quit()
+    except Exception:
+        pass
+
+
+def _notify_whatsapp(order_no, section, location, reporter_name, contact, description):
+    if not (_env("WHATSAPP_TOKEN") and _env("WHATSAPP_PHONE_ID") and _env("WHATSAPP_TO")):
+        return
+    body = (
+        f"بلاغ صيانة جديد 🛠️\n\n"
+        f"رقم الأمر: {order_no}\n"
+        f"الموقع: {location}\n"
+        f"القسم: {section}\n"
+        f"المُبلّغ: {reporter_name} ({contact})\n"
+        f"الوصف: {description[:150]}\n"
+    )
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": _env("WHATSAPP_TO"),
+        "type": "text",
+        "text": {"body": body},
+    }
+    url = f"https://graph.facebook.com/v19.0/{_env('WHATSAPP_PHONE_ID')}/messages"
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Authorization": f"Bearer {_env('WHATSAPP_TOKEN')}",
+                 "Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            resp.read()
+    except Exception:
+        pass
+
+
 def insert_order(reporter_name, contact, location, section, priority,
                  technician, description, problem_type="", building="",
                  unit="", media="", status="pending", source="manual") -> tuple[int, str, str]:
@@ -717,10 +1083,27 @@ def dashboard(request: Request, status: str = "", q: str = ""):
             FROM work_orders
             """
         ).fetchone()
+        dist_status, dist_section, dist_tech = {}, {}, {}
+        dist_priority = {}
+        for r in c.execute("SELECT status, section, technician, priority FROM work_orders").fetchall():
+            dist_status[r["status"]] = dist_status.get(r["status"], 0) + 1
+            s = r["section"] or "غير محدد"
+            dist_section[s] = dist_section.get(s, 0) + 1
+            t = (r["technician"] or "غير معيّن").strip() or "غير معيّن"
+            dist_tech[t] = dist_tech.get(t, 0) + 1
+            dist_priority[r["priority"]] = dist_priority.get(r["priority"], 0) + 1
+
+    chart = {
+        "status": dist_status,
+        "section": dict(sorted(dist_section.items(), key=lambda kv: -kv[1])),
+        "tech": dict(sorted(dist_tech.items(), key=lambda kv: -kv[1])),
+        "priority": dist_priority,
+    }
 
     return templates.TemplateResponse(
         request, "dashboard.html",
-        context(request, orders=orders, stats=stats, q=q, status=status),
+        context(request, orders=orders, stats=stats, q=q, status=status,
+                chart_data=json.dumps(chart, ensure_ascii=False)),
     )
 
 
@@ -921,6 +1304,19 @@ def qr_for_order(order_id: int, request: Request):
     return make_qr_png(f"{base_url(request)}/track/{row['token']}")
 
 
+@app.get("/orders/{order_id}/qr.png")
+def qr_download(order_id: int, request: Request):
+    """تحميل رمز QR الخاص بأمر العمل كصورة PNG (لتثبيته عند الوحدة)."""
+    row = get_order_or_404(request, order_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="not found")
+    resp = make_qr_png(f"{base_url(request)}/track/{row['token']}")
+    resp.headers["Content-Disposition"] = (
+        f'attachment; filename="qr-{row["order_no"] or order_id}.png"'
+    )
+    return resp
+
+
 @app.get("/poster-qr")
 def poster_qr(request: Request, location: str = ""):
     url = f"{base_url(request)}/report"
@@ -971,6 +1367,11 @@ def public_report_submit(
         problem_type=problem_type, building=building, unit=unit,
         media=",".join(saved), status="pending", source="qr",
     )
+    # تنبيه فوري (بريد و/أو WhatsApp) — يُتجاهل بصمت إن لم تُضبط المتغيرات
+    try:
+        notify_new_request(order_no, section, location, reporter_name, contact, description)
+    except Exception:
+        pass
     return templates.TemplateResponse(
         request, "thanks.html",
         context(request, order_no=order_no, reference_id=reference_id, media=saved),
@@ -1062,7 +1463,79 @@ def monthly_report(request: Request, year: int = 0, month: int = 0):
             rows=rows, year=year, month=month, years=sorted(years),
             by_section=by_section, by_priority=by_priority,
             by_status=by_status, by_source=by_source, totals=totals,
+            chart_data=json.dumps({
+                "status": by_status,
+                "section": dict(sorted(by_section.items(), key=lambda kv: -kv[1])),
+                "priority": by_priority,
+                "source": by_source,
+            }, ensure_ascii=False),
         ),
+    )
+
+
+def _monthly_export_data(year: int, month: int):
+    """إعادة بيانات التقرير الشهري نفسها المستخدمة في صفحة /monthly."""
+    t = now_local()
+    year = year or t.year
+    month = min(max(month or t.month, 1), 12)
+    ym = f"{year:04d}-{month:02d}"
+    with db() as c:
+        rows = c.execute(
+            "SELECT * FROM work_orders WHERE substr(created_at,1,7)=? ORDER BY id ASC",
+            (ym,),
+        ).fetchall()
+    by_section = {}
+    by_status = {}
+    for r in rows:
+        s = r["section"] or "غير محدد"
+        by_section[s] = by_section.get(s, 0) + 1
+        by_status[r["status"]] = by_status.get(r["status"], 0) + 1
+    totals = {
+        "total": len(rows),
+        "done": by_status.get("done", 0),
+        "approved": by_status.get("approved", 0),
+        "pending": by_status.get("pending", 0),
+        "rejected": by_status.get("rejected", 0),
+        "rate": round(by_status.get("done", 0) * 100 / len(rows)) if rows else 0,
+    }
+    return rows, totals, by_section
+
+
+@app.get("/monthly/pdf")
+def monthly_report_pdf(year: int = 0, month: int = 0):
+    """تحميل التقرير الشهري كملف PDF."""
+    t = now_local()
+    year = year or t.year
+    month = min(max(month or t.month, 1), 12)
+    rows, totals, by_section = _monthly_export_data(year, month)
+    pdf_bytes = monthly_pdf_bytes(rows, totals, year, month, by_section)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="monthly-report-{year}-{month:02d}.pdf"'
+            )
+        },
+    )
+
+
+@app.get("/monthly/excel")
+def monthly_report_excel(year: int = 0, month: int = 0):
+    """تحميل التقرير الشهري كملف Excel (.xlsx)."""
+    t = now_local()
+    year = year or t.year
+    month = min(max(month or t.month, 1), 12)
+    rows, totals, by_section = _monthly_export_data(year, month)
+    xlsx_bytes = monthly_xlsx_bytes(rows, totals, year, month, by_section)
+    return Response(
+        content=xlsx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="monthly-report-{year}-{month:02d}.xlsx"'
+            )
+        },
     )
 
 

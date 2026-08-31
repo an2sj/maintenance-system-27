@@ -45,6 +45,25 @@
   <a class="btn btn-primary push" href="/orders/new">＋ {{ tr('nav_new') }}</a>
 </div>
 
+<div class="charts no-print">
+  <div class="chart-card">
+    <h3>{{ 'البلاغات حسب الحالة' if LANG == 'ar' else 'Orders by Status' }}</h3>
+    <canvas id="chStatus" height="180"></canvas>
+  </div>
+  <div class="chart-card">
+    <h3>{{ 'البلاغات حسب القسم' if LANG == 'ar' else 'Orders by Section' }}</h3>
+    <canvas id="chSection" height="180"></canvas>
+  </div>
+  <div class="chart-card">
+    <h3>{{ 'البلاغات حسب الفني' if LANG == 'ar' else 'Orders by Technician' }}</h3>
+    <canvas id="chTech" height="180"></canvas>
+  </div>
+</div>
+
+<script>
+window.__chartData = {{ chart_data | safe }};
+</script>
+
 <div class="tbl-wrap">
   <table class="tbl">
     <thead>
@@ -78,6 +97,7 @@
         <td class="acts">
           <a class="btn btn-ghost btn-sm inline" href="/orders/{{ o.id }}">{{ tr('action_view') }}</a>
           <a class="btn btn-sm inline" href="/orders/{{ o.id }}/edit">{{ tr('action_edit') }}</a>
+          <a class="btn btn-sm inline" href="/orders/{{ o.id }}/qr.png" title="{{ 'تحميل رمز QR' if LANG == 'ar' else 'Download QR' }}">⬇ QR</a>
           <a class="btn btn-sm inline" href="/orders/{{ o.id }}/print?autoprint=1" target="_blank">🖨</a>
           <form class="inline" method="post" action="/orders/{{ o.id }}/delete"
                 onsubmit="return confirm('{{ 'حذف' if LANG == 'ar' else 'Delete' }} {{ o.order_no }}?')">
@@ -92,4 +112,56 @@
   </table>
 </div>
 
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+  if (!window.Chart) return;
+  const d = window.__chartData || {};
+  const PAL = ['#0d9488','#f59e0b','#ef4444','#3b82f6','#8b5cf6','#10b981','#f97316','#ec4899','#14b8a6','#64748b'];
+  function doughnut(canvas, obj, title) {
+    const el = document.getElementById(canvas);
+    if (!el) return;
+    const keys = Object.keys(obj || {});
+    const vals = Object.values(obj || {});
+    if (!keys.length) return;
+    new Chart(el, {
+      type: 'doughnut',
+      data: { labels: keys, datasets: [{ data: vals,
+        backgroundColor: keys.map((_, i) => PAL[i % PAL.length]),
+        borderWidth: 2, borderColor: '#fff' }] },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { font: { family: 'Cairo' } } } } }
+    });
+  }
+  function bar(canvas, obj, title) {
+    const el = document.getElementById(canvas);
+    if (!el) return;
+    const keys = Object.keys(obj || {});
+    const vals = Object.values(obj || {});
+    if (!keys.length) return;
+    new Chart(el, {
+      type: 'bar',
+      data: { labels: keys, datasets: [{ label: title, data: vals,
+        backgroundColor: '#0d9488', borderRadius: 6 }] },
+      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false },
+          tooltip: { rtl: true } },
+        scales: { x: { beginAtZero: true, ticks: { precision: 0 } },
+                  y: { ticks: { font: { family: 'Cairo' } } } } }
+    });
+  }
+  doughnut('chStatus', d.status);
+  doughnut('chSection', d.section);
+  bar('chTech', d.tech);
+})();
+</script>
+<style>
+  .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin: 18px 0; }
+  .chart-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .chart-card h3 { margin: 0 0 12px; font-size: 14px; color: #0f172a; }
+  .chart-card canvas { width: 100% !important; }
+</style>
 {% endblock %}
