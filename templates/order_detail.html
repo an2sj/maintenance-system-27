@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}أمر {{ o.order_no }}{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div class="page-head-row">
+    <div>
+      <h1>{{ 'أمر العمل' if LANG == 'ar' else 'Work Order' }} <span class="mono">{{ o.order_no }}</span></h1>
+      <div class="sub">
+        <span class="badge b-{{ STATUS_META[o.status][1] }}">{{ STATUS_META[o.status][0] if LANG == 'ar' else T_STATUS(o.status) }}</span>
+        &nbsp;·&nbsp; {{ 'المصدر' if LANG == 'ar' else 'Source' }}: {{ ('بلاغ QR' if o.source == 'qr' else 'لوحة التحكم') if LANG == 'ar' else ('QR Report' if o.source == 'qr' else 'Dashboard') }}
+        {% if o.reference_id %}&nbsp;·&nbsp; <span class="mono">{{ 'رقم مرجعي' if LANG == 'ar' else 'Ref' }}: {{ o.reference_id }}</span>{% endif %}
+      </div>
+    </div>
+    <div class="page-actions">
+      <a class="btn btn-ghost" href="/orders/{{ o.id }}/edit">{{ tr('action_edit') }}</a>
+      <a class="btn btn-ghost" href="/orders/{{ o.id }}/print?autoprint=1" target="_blank">{{ tr('btn_print_header') }}</a>
+      <a class="btn btn-ghost" href="/track/{{ o.token }}" target="_blank">{{ tr('btn_track') }}</a>
+    </div>
+  </div>
+</div>
+
+<div class="detail-grid">
+  <div class="card form-card">
+    <div class="kv-grid">
+      <div class="kv"><span>{{ tr('f_reporter') }}</span><b>{{ o.reporter_name }}</b></div>
+      <div class="kv"><span>{{ tr('f_contact') }}</span><b dir="ltr" class="mono">{{ o.contact or '—' }}</b></div>
+      <div class="kv"><span>{{ tr('col_location') }}</span><b>{{ o.location }}</b></div>
+      <div class="kv"><span>{{ tr('f_maintenance_type') }}</span><b>{{ o.section }}</b></div>
+      {% if o.problem_type %}<div class="kv"><span>{{ tr('f_problem_type') }}</span><b>{{ o.problem_type }}</b></div>{% endif %}
+      <div class="kv"><span>{{ tr('f_priority') }}</span><b><span class="prio {{ 'p-c' if o.priority == 'طارئة' else ('p-u' if o.priority == 'مستعجلة' else 'p-n') }}">{{ o.priority if LANG == 'ar' else T_PRIO(o.priority) }}</span></b></div>
+      <div class="kv"><span>{{ tr('f_technician') }}</span><b>{{ o.technician or '—' }}</b></div>
+      <div class="kv"><span>{{ tr('f_received') }}</span><b class="mono">{{ o.created_at|dt }}</b></div>
+      <div class="kv"><span>{{ tr('f_completion') }}</span><b class="mono">{{ o.completed_at|dt if o.completed_at else '—' }}</b></div>
+    </div>
+
+    <div class="doc-label">{{ tr('f_description') }}</div>
+    <div class="doc-desc"><p>{{ o.description }}</p></div>
+
+    {% if media %}
+    <div class="doc-label">{{ tr('f_media') }} ({{ media|length }})</div>
+    <div class="media-gallery">
+      {% for m in media %}
+      <div class="media-item">
+        {% if m.lower().endswith(('.mp4','.mov','.webm')) %}
+        <video controls preload="metadata" src="{{ m }}"></video>
+        {% else %}
+        <a href="{{ m }}" target="_blank"><img src="{{ m }}" alt="attachment"></a>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if o.notes %}
+    <div class="doc-label">{{ tr('col_notes') }}</div>
+    <div class="doc-desc"><p>{{ o.notes }}</p></div>
+    {% endif %}
+
+    <div class="doc-label">{{ tr('btn_update') }}</div>
+    <form method="post" action="/orders/{{ o.id }}/update" class="stack-form">
+      <div class="field">
+        <label>{{ tr('col_status') }}</label>
+        <select name="status">
+          {% for k, v in STATUS_META.items() %}
+          <option value="{{ k }}" {% if o.status == k %}selected{% endif %}>{{ v[0] if LANG == 'ar' else T_STATUS(k) }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label>{{ tr('f_technician') }}</label>
+        <input type="text" name="technician" value="{{ o.technician }}" maxlength="120">
+      </div>
+      <div class="field">
+        <label>{{ tr('col_notes') }}</label>
+        <textarea name="notes" rows="3">{{ o.notes }}</textarea>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" type="submit">{{ tr('btn_update') }}</button>
+        <form method="post" action="/orders/{{ o.id }}/delete"
+              style="display:inline;"
+              onsubmit="return confirm('{{ 'حذف' if LANG == 'ar' else 'Delete' }} {{ o.order_no }}?')">
+          <button class="btn btn-danger" type="submit">{{ tr('btn_delete') }}</button>
+        </form>
+      </div>
+    </form>
+  </div>
+
+  <aside class="card qr-card">
+    <div class="doc-label">QR</div>
+    <img class="qr-img" src="/qr/{{ o.id }}" alt="QR" width="200" height="200">
+    <p class="muted center">{{ 'امسح الرمز لمتابعة حالة هذا الأمر من أي جهاز.' if LANG == 'ar' else 'Scan to track this order from any device.' }}</p>
+    <code class="qr-url mono">{{ request.url.scheme }}://{{ request.url.netloc }}/track/{{ o.token }}</code>
+    <div class="doc-label">{{ 'بطاقة سريعة' if LANG == 'ar' else 'Quick card' }}</div>
+    <div class="mini-card">
+      <span>{{ tr('col_location') }}</span><b>{{ o.location }}</b>
+      <span>{{ tr('f_maintenance_type') }}</span><b>{{ o.section }}</b>
+      <span>{{ tr('f_technician') }}</span><b>{{ o.technician or '—' }}</b>
+    </div>
+  </aside>
+</div>
+
+{% endblock %}

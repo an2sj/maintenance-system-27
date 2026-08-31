@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}{{ 'طباعة' if LANG == 'ar' else 'Print' }} {{ o.order_no }}{% endblock %}
+{% block content %}
+
+<div class="print-bar no-print">
+  <button class="btn btn-primary btn-lg" onclick="window.print()">🖨 {{ tr('btn_print') }}</button>
+  <a class="btn btn-ghost btn-lg" href="/orders/{{ o.id }}">{{ tr('btn_cancel') }}</a>
+</div>
+
+<div class="doc">
+  <div class="doc-head">
+    <div class="d-col">
+      {% if LOGO %}<img src="{{ LOGO }}" alt="{{ ORG_RIGHT }}" style="width:60px; height:60px; object-fit:contain;">{% endif %}
+      <div class="d-name">{{ ORG_RIGHT }}</div>
+      <div class="d-sub">وزارة الصحة — المملكة العربية السعودية</div>
+    </div>
+    <div class="d-col center">
+      <div class="d-name" style="font-size:18px;">{{ HOSPITAL_NAME }}</div>
+      <div class="d-sub">{{ DEPARTMENT_NAME }}</div>
+    </div>
+    <div class="d-col">
+      <div class="d-name">&nbsp;</div>
+      <div class="d-sub">&nbsp;</div>
+    </div>
+  </div>
+
+  <div class="doc-title"><span>{{ 'أمر عمل صيانة رقم' if LANG == 'ar' else 'Maintenance Work Order No.' }}: {{ o.order_no }}</span></div>
+
+  <div class="kv-grid">
+    <div class="kv"><span>{{ tr('f_reporter') }}</span><b>{{ o.reporter_name }}</b></div>
+    <div class="kv"><span>{{ tr('f_contact') }}</span><b dir="ltr">{{ o.contact or '—' }}</b></div>
+    <div class="kv"><span>{{ tr('col_location') }}</span><b>{{ o.location }}</b></div>
+    <div class="kv"><span>{{ tr('f_maintenance_type') }}</span><b>{{ o.section }}</b></div>
+    {% if o.problem_type %}<div class="kv"><span>{{ tr('f_problem_type') }}</span><b>{{ o.problem_type }}</b></div>{% endif %}
+    <div class="kv"><span>{{ tr('f_priority') }}</span><b>{{ o.priority if LANG == 'ar' else T_PRIO(o.priority) }}</b></div>
+    <div class="kv"><span>{{ tr('f_technician') }}</span><b>{{ o.technician or '........................' }}</b></div>
+    <div class="kv"><span>{{ tr('f_received') }}</span><b class="mono">{{ o.created_at|dt }}</b></div>
+    <div class="kv"><span>{{ tr('col_status') }}</span><b>{{ STATUS_META[o.status][0] if LANG == 'ar' else T_STATUS(o.status) }}</b></div>
+    {% if o.reference_id %}<div class="kv"><span>{{ 'رقم مرجعي' if LANG == 'ar' else 'Ref' }}</span><b class="mono">{{ o.reference_id }}</b></div>{% endif %}
+  </div>
+
+  <div class="doc-label">{{ 'وصف المشكلة والأعمال المطلوبة' if LANG == 'ar' else 'Problem description & required works' }}</div>
+  <div class="doc-desc"><p>{{ o.description }}</p></div>
+
+  {% if media %}
+  <div class="doc-label">{{ tr('f_media') }}</div>
+  <div class="media-gallery">
+    {% for m in media %}
+    <div class="media-item">
+      {% if m.lower().endswith(('.mp4','.mov','.webm')) %}
+      <video controls preload="metadata" src="{{ m }}"></video>
+      {% else %}
+      <a href="{{ m }}" target="_blank"><img src="{{ m }}" alt="attachment"></a>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if o.notes %}
+  <div class="doc-label">{{ tr('col_notes') }}</div>
+  <div class="doc-desc"><p>{{ o.notes }}</p></div>
+  {% endif %}
+
+  <div class="signs">
+    <div class="sign"><span>{{ 'مقدّم البلاغ / التوقيع' if LANG == 'ar' else 'Reporter / Signature' }}</span><i></i></div>
+    <div class="sign"><span>{{ 'الفني المكلف / التوقيع' if LANG == 'ar' else 'Technician / Signature' }}</span><i></i></div>
+    <div class="sign"><span>{{ 'مسؤول الصيانة / الاعتماد' if LANG == 'ar' else 'Maintenance / Approval' }}</span><i></i></div>
+  </div>
+
+  <div class="doc-foot">
+    <div class="df-right">
+      {{ 'يُنفَّذ هذا الأمر وفق نطاق عقد الصيانة والتشغيل.' if LANG == 'ar' else 'Executed under the maintenance & operation contract scope.' }}
+      <br>{{ 'عند إتمام الأعمال يُوقَّع النموذج ويُعاد للإدارة للأرشفة والإقفال.' if LANG == 'ar' else 'Upon completion, the form is signed and returned to management for archiving and closure.' }}
+    </div>
+    <div class="df-left">
+      <img src="/qr/{{ o.id }}" alt="QR" width="104" height="104">
+      <div class="df-hint">{{ 'امسح الرمز لمتابعة الحالة إلكترونياً' if LANG == 'ar' else 'Scan to track status' }}</div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+{% if autoprint %}
+<script>window.addEventListener('load', function () { setTimeout(function () { window.print(); }, 350); });</script>
+{% endif %}
+{% endblock %}

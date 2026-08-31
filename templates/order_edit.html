@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}{{ tr('edit_title') }}{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1>{{ tr('edit_title') }} <span class="mono">{{ o.order_no }}</span></h1>
+  <div class="sub">{{ o.reporter_name }} · {{ o.created_at|dt }}</div>
+</div>
+
+{% if flashes %}{% else %}
+{% if request.query_params.get('err') %}
+<div class="flash flash-bad">{{ tr('f_reporter') }} — {{ 'يرجى تعبئة الحقول الإلزامية.' if LANG == 'ar' else 'Please fill required fields.' }}</div>
+{% endif %}
+{% endif %}
+
+<div class="card form-card" style="max-width:860px;">
+  <form method="post" action="/orders/{{ o.id }}/edit" class="form-grid">
+    <div class="field">
+      <label>{{ tr('f_reporter') }} <em>*</em></label>
+      <input type="text" name="reporter_name" required maxlength="120" value="{{ o.reporter_name }}">
+    </div>
+    <div class="field">
+      <label>{{ tr('f_contact') }}</label>
+      <input type="tel" name="contact" dir="ltr" inputmode="tel" value="{{ o.contact }}">
+    </div>
+
+    <div class="field wide">
+      <label>{{ tr('f_building') }}</label>
+      <select name="building" id="building" onchange="updateBuilding(this)">
+        <option value="">{{ tr('select_placeholder') }}</option>
+        {% for b in BUILDINGS %}<option value="{{ b }}" {% if o.building == b %}selected{% endif %}>{{ b }}</option>{% endfor %}
+      </select>
+    </div>
+
+    <div class="field wide">
+      <label>{{ tr('f_location') }} / {{ tr('f_unit') }}</label>
+      <input type="text" name="location" maxlength="150" value="{{ o.location }}">
+      <input type="text" name="unit" maxlength="60" value="{{ o.unit }}" placeholder="{{ tr('f_unit_placeholder') }}" style="margin-top:8px;">
+      <div class="dyn-hint">{{ 'أدخل التفصيل (المبنى/الموقع/الوحدة) — يمكن تعبئة الموقع التفصيلي يدوياً في الحقل الأول.' if LANG == 'ar' else 'Enter the detail (building/location/unit) — fill the detailed location in the first field.' }}</div>
+    </div>
+
+    <div class="field">
+      <label>{{ tr('f_maintenance_type') }}</label>
+      <select name="section" id="maint_type" onchange="updateProblemType(this)">
+        <option value="">{{ tr('select_placeholder') }}</option>
+        {% for mt in MAINTENANCE_TYPES %}<option value="{{ mt }}" {% if o.section == mt %}selected{% endif %}>{{ mt }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label>{{ tr('f_problem_type') }}</label>
+      <select name="problem_type" id="problem_type">
+        <option value="">{{ tr('select_placeholder') }}</option>
+        {% if o.problem_type %}<option value="{{ o.problem_type }}" selected>{{ o.problem_type }}</option>{% endif %}
+      </select>
+    </div>
+
+    <div class="field">
+      <label>{{ tr('f_priority') }}</label>
+      <select name="priority">
+        {% for p in PRIORITIES %}<option value="{{ p }}" {% if o.priority == p %}selected{% endif %}>{{ p }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label>{{ tr('f_technician') }}</label>
+      <input type="text" name="technician" maxlength="120" value="{{ o.technician }}">
+    </div>
+
+    <div class="field wide">
+      <label>{{ tr('f_description') }}</label>
+      <textarea name="description" rows="4">{{ o.description }}</textarea>
+    </div>
+
+    <div class="form-actions">
+      <button class="btn btn-primary btn-lg" type="submit">{{ tr('btn_save_changes') }}</button>
+      <a class="btn btn-ghost btn-lg" href="/orders/{{ o.id }}">{{ tr('btn_cancel') }}</a>
+    </div>
+  </form>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const PROBLEM_TYPES = {{ PROBLEM_TYPES|tojson }};
+  function updateProblemType(sel) {
+    const val = sel.value;
+    const pt = document.getElementById('problem_type');
+    const current = pt.value;
+    pt.innerHTML = '<option value="">{{ tr('select_placeholder') }}</option>';
+    (PROBLEM_TYPES[val] || []).forEach(function (p) {
+      const opt = document.createElement('option');
+      opt.value = p; opt.textContent = p;
+      if (p === current) opt.selected = true;
+      pt.appendChild(opt);
+    });
+  }
+  function updateBuilding(sel) {
+    // الحقل يبقى نصياً يدوياً: لا حاجة لإخفاء
+  }
+</script>
+{% endblock %}

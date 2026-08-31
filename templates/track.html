@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="{{ LANG }}" dir="{{ 'rtl' if LANG == 'ar' else 'ltr' }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{{ tr('track_status') }} | {{ HOSPITAL_NAME }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    .pub-lang { text-align: center; margin-bottom: 8px; }
+    .pub-lang a { display: inline-block; padding: 6px 18px; border-radius: 999px; border: 1.5px solid var(--primary); color: var(--primary-darker); font-weight: 800; font-size: 13px; }
+  </style>
+</head>
+<body>
+
+{% if o %}
+<main class="pub-wrap">
+  <div class="pub-lang no-print">
+    <a href="?lang={{ 'ar' if LANG == 'en' else 'en' }}">{{ tr('lang_switch') }}</a>
+  </div>
+  <div class="card track-card">
+    <div class="pub-org">{{ ORG_RIGHT }} · {{ HOSPITAL_NAME }}</div>
+    <p class="muted" style="margin-top:10px;">{{ tr('track_status') }}</p>
+    <div class="order-no mono">{{ o.order_no }}</div>
+    {% if o.reference_id %}<div class="muted mono" style="font-size:13px;">{{ 'رقم مرجعي' if LANG == 'ar' else 'Ref' }}: {{ o.reference_id }}</div>{% endif %}
+    <span class="badge b-{{ STATUS_META[o.status][1] }}" style="font-size:16px; padding:8px 26px;">{{ STATUS_META[o.status][0] if LANG == 'ar' else T_STATUS(o.status) }}</span>
+
+    <table class="kv-table">
+      <tr><th>{{ tr('col_location') }}</th><td>{{ o.location }}</td></tr>
+      <tr><th>{{ tr('f_maintenance_type') }}</th><td>{{ o.section or '—' }}</td></tr>
+      {% if o.problem_type %}<tr><th>{{ tr('f_problem_type') }}</th><td>{{ o.problem_type }}</td></tr>{% endif %}
+      <tr><th>{{ tr('f_priority') }}</th><td>{{ o.priority if LANG == 'ar' else T_PRIO(o.priority) }}</td></tr>
+      <tr><th>{{ tr('f_technician') }}</th><td>{{ o.technician or tr('track_assigned_soon') }}</td></tr>
+      <tr><th>{{ tr('f_received') }}</th><td class="mono">{{ o.created_at|dt }}</td></tr>
+      {% if o.completed_at %}<tr><th>{{ tr('f_completion') }}</th><td class="mono">{{ o.completed_at|dt }}</td></tr>{% endif %}
+    </table>
+
+    <div class="doc-label" style="text-align:{{ 'right' if LANG == 'ar' else 'left' }};">{{ tr('f_description') }}</div>
+    <div class="doc-desc"><p>{{ o.description }}</p></div>
+
+    {% if media %}
+    <div class="doc-label" style="text-align:{{ 'right' if LANG == 'ar' else 'left' }};">{{ tr('f_media') }}</div>
+    <div class="media-gallery">
+      {% for m in media %}
+      <div class="media-item">
+        {% if m.lower().endswith(('.mp4','.mov','.webm')) %}
+        <video controls preload="metadata" src="{{ m }}"></video>
+        {% else %}
+        <a href="{{ m }}" target="_blank"><img src="{{ m }}" alt="attachment"></a>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <p class="muted" style="font-size:13px;">
+      {{ tr('track_inquiry') }} — {{ HOSPITAL_NAME }}
+    </p>
+  </div>
+</main>
+{% else %}
+<main class="pub-wrap">
+  <div class="card thanks">
+    <div class="thanks-icon">🔎</div>
+    <h1>{{ tr('track_notfound') }}</h1>
+    <p class="muted">{{ tr('track_notfound_note') }}</p>
+    <a class="btn btn-primary" href="/report">{{ tr('thanks_again') }}</a>
+  </div>
+</main>
+{% endif %}
+
+</body>
+</html>

@@ -1,0 +1,64 @@
+========================================================
+ خطوات الرفع والنشر — اتبعها بالترتيب
+========================================================
+
+أولاً: ارفع هذه الملفات إلى GitHub
+--------------------------------------------------------
+1) افتح https://github.com وسجّل الدخول.
+2) اضغط + (أعلى اليمين) ثم New repository.
+3) اسم المستودع: maintenance-system
+   (لا تختر "Add README" أو ".gitignore" أو "license").
+4) اضغط Create repository.
+5) في الصفحة التالية اضغط "uploading an existing file".
+6) اسحب جميع الملفات التالية وأفلتها في الصفحة:
+     main.py
+     requirements.txt
+     Procfile
+     render.yaml
+     runtime.txt
+     README.md
+     .gitignore
+     المجلد static/ (يحتوي style.css)
+     المجلد templates/ (يحتوي ملفات HTML العشرة)
+   ملاحظة: إن لم يظهر .gitignore في السحب، تجاهله ولا مشكلة.
+7) مرّر للأسفل، اكتب تعليق "النسخة الأولى" ثم اضغط Commit changes.
+
+
+ثانياً: انشر على Render (موقع عام 24/7)
+--------------------------------------------------------
+1) سجّل/ادخل في https://render.com (بحساب GitHub).
+2) New +  >>  Web Service  >>  Connect a repository
+3) اربط حساب GitHub، ثم Connect على مستودع maintenance-system.
+4) سيتم قراءة إعدادات build/start تلقائياً من render.yaml.
+   تأكد فقط:
+     Build Command : python -m pip install -r requirements.txt
+     Start Command : uvicorn main:app --host 0.0.0.0 --port $PORT
+5) في قسم Environment اضغط Add Environment Variable وأضف:
+     DASHBOARD_PASSWORD  =  (ضع كلمة مرور قوية من اختيارك)
+     COOKIE_SECURE       =  1
+6) اضغط Create Web Service.
+7) انتظر 2-5 دقائق حتى تظهر الحالة Live.
+8) النسخة المجانية على Render تحتاج إعادة تشغيل كل 15 دقيقة تقريباً
+   (المشروع مبني لاستئناف العمل بسلاسة، والبيانات تبقى محفوظة).
+
+
+ثالثاً: بعد النشر
+--------------------------------------------------------
+1) افتح رابطك مثل: https://maintenance-system.onrender.com
+2) أضف متغير PUBLIC_BASE_URL = "https://maintenance-system.onrender.com"
+   من Dashboard >> Environment ثم اضغط Deploy من جديد
+   (هذا يجعل رموز QR تشير لرابطك العام الصحيح).
+3) افتح /poster لطباعة ملصق رمز QR ووزعه على الأقسام.
+4) افتح / (لوحة التحكم) وأدخل كلمة المرور.
+5) /report صفحة البلاغ العام (متاحة للجميع عبر مسح QR).
+
+
+الملفات الأساسية
+--------------------------------------------------------
+- main.py          : تطبيق FastAPI + قاعدة SQLite
+- requirements.txt : مكتبات التطبيق
+- render.yaml      : إعدادات Render (قرص دائم تلقائي)
+- Procfile         : أمر التشغيل
+- templates/       : صفحات الواجهة (HTML)
+- static/style.css : تصاميم الواجهة
+========================================================

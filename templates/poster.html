@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}{{ tr('nav_poster') }}{% endblock %}
+{% block content %}
+
+<div class="print-bar no-print">
+  <button class="btn btn-primary btn-lg" onclick="window.print()">🖨 {{ tr('btn_print') }}</button>
+  {% if location %}<a class="btn btn-ghost btn-lg" href="/poster">إزالة تحديد الموقع</a>{% endif %}
+</div>
+
+<div class="doc">
+  <div class="poster">
+    <div class="doc-head">
+      <div class="d-col">
+        {% if LOGO %}<img src="{{ LOGO }}" alt="{{ ORG_RIGHT }}" style="width:64px; height:64px; object-fit:contain; border-radius:10px; border:1px solid var(--line); padding:4px; background:#fff;">{% endif %}
+        <div class="d-name">{{ ORG_RIGHT }}</div>
+        <div class="d-sub">وزارة الصحة</div>
+      </div>
+      <div class="d-col center">
+        <div class="d-name" style="font-size:16px;">{{ HOSPITAL_NAME }}</div>
+        <div class="d-sub">{{ DEPARTMENT_NAME }}</div>
+      </div>
+      <div class="d-col">
+        <div class="d-name" style="font-size:11px; color:#555;" id="posterLangHint"></div>
+        <div class="d-sub">{{ 'مسح للتبديل' if LANG == 'ar' else 'scan to report' }}</div>
+      </div>
+    </div>
+
+    <div class="poster-title">{{ 'هل لديك عطل صيانة؟' if LANG == 'ar' else 'Have a maintenance issue?' }}</div>
+    <div class="poster-sub">
+      {% if LANG == 'ar' %}
+      امسح رمز الاستجابة السريعة بكاميرا جوالك واملأ نموذج البلاغ.<br>سيصل بلاغك مباشرة إلى قسم الصيانة لتدقيقه واعتماده.
+      {% else %}
+      Scan the QR code with your phone camera and fill the report form.<br>It reaches maintenance immediately for review and approval.
+      {% endif %}
+    </div>
+
+    <img class="qr-huge" src="/poster-qr{% if location %}?location={{ location }}{% endif %}" alt="QR" style="background:#fff; border:1px solid var(--line); border-radius:12px; padding:12px;">
+
+    {% if location %}<div class="poster-loc">{{ tr('col_location') }}: {{ location }}</div>{% endif %}
+
+    <div class="poster-note">
+      {% if LANG == 'ar' %}
+      للطوارئ الحرجة تواصل مباشرة مع غرفة الصيانة<br>هذا الملصق صادر عن نظام أوامر العمل الإلكتروني
+      {% else %}
+      For critical emergencies, contact maintenance directly.<br>Issued by the electronic work orders system
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>document.getElementById('posterLangHint').textContent = {{ ('عربي' if LANG=='ar' else 'English')|tojson }};</script>
+{% endblock %}

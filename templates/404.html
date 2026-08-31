@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}404{% endblock %}
+{% block content %}
+
+<div class="empty-state">
+  <div class="empty-icon">🔎</div>
+  <h2>{{ 'عذراً، العنصر غير موجود' if LANG == 'ar' else 'Sorry, item not found' }}</h2>
+  <p class="muted">{{ 'قد يكون أمر العمل قد حُذف أو أن الرابط غير صحيح.' if LANG == 'ar' else 'The work order may have been deleted or the link is invalid.' }}</p>
+  <a class="btn btn-primary" href="/">{{ tr('nav_dash') }}</a>
+</div>
+
+{% endblock %}

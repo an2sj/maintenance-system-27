@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}{{ tr('nav_dash') }}{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1>{{ tr('dash_title') }}</h1>
+  <div class="sub">{{ DEPARTMENT_NAME }} — {{ ORG_RIGHT }}</div>
+</div>
+
+<div class="stats">
+  <a class="stat s-all" href="/">
+    <span class="stat-num">{{ stats.total }}</span>
+    <span class="stat-label">{{ tr('dash_totals') }}</span>
+  </a>
+  <a class="stat s-pending" href="/incoming">
+    <span class="stat-num">{{ stats.pending }}</span>
+    <span class="stat-label">{{ tr('dash_pending_review') }}</span>
+  </a>
+  <a class="stat s-approved" href="/?status=approved">
+    <span class="stat-num">{{ stats.approved }}</span>
+    <span class="stat-label">{{ tr('dash_in_progress') }}</span>
+  </a>
+  <a class="stat s-done" href="/?status=done">
+    <span class="stat-num">{{ stats.done }}</span>
+    <span class="stat-label">{{ tr('dash_done') }}</span>
+  </a>
+  <a class="stat s-urgent" href="/">
+    <span class="stat-num">{{ stats.urgent }}</span>
+    <span class="stat-label">{{ tr('dash_urgent') }}</span>
+  </a>
+</div>
+
+<div class="toolbar">
+  <form method="get" action="/" class="toolbar-form">
+    <input type="text" name="q" value="{{ q }}" placeholder="{{ tr('search_ph') }}">
+    <select name="status">
+      <option value="">{{ tr('all_status') }}</option>
+      {% for k, v in STATUS_META.items() %}
+      <option value="{{ k }}" {% if status == k %}selected{% endif %}>{{ v[0] if LANG == 'ar' else T_STATUS(k) }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-ghost btn-sm" type="submit">{{ tr('filter') }}</button>
+    {% if q or status %}<a class="btn btn-ghost btn-sm" href="/">{{ tr('clear') }}</a>{% endif %}
+  </form>
+  <a class="btn btn-primary push" href="/orders/new">＋ {{ tr('nav_new') }}</a>
+</div>
+
+<div class="tbl-wrap">
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th>{{ tr('col_order') }}</th>
+        <th>{{ tr('col_title') }}</th>
+        <th>{{ tr('col_reporter') }}</th>
+        <th>{{ tr('col_contact') }}</th>
+        <th>{{ tr('col_location') }}</th>
+        <th>{{ tr('f_maintenance_type') }}</th>
+        <th>{{ tr('col_priority') }}</th>
+        <th>{{ tr('f_technician') }}</th>
+        <th>{{ tr('col_status') }}</th>
+        <th>{{ tr('col_source') }}</th>
+        <th>{{ tr('col_actions') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for o in orders %}
+      <tr>
+        <td><a class="mono" href="/orders/{{ o.id }}"><b>{{ o.order_no }}</b></a></td>
+        <td class="mono nowrap">{{ o.created_at|dt }}</td>
+        <td>{{ o.reporter_name }}</td>
+        <td class="mono" dir="ltr">{{ o.contact or '—' }}</td>
+        <td class="desc-cell">{{ o.location }}</td>
+        <td>{{ o.section }}</td>
+        <td><span class="prio {{ 'p-c' if o.priority == 'طارئة' else ('p-u' if o.priority == 'مستعجلة' else 'p-n') }}">{{ o.priority if LANG == 'ar' else T_PRIO(o.priority) }}</span></td>
+        <td>{{ o.technician or '—' }}</td>
+        <td><span class="badge b-{{ STATUS_META[o.status][1] }}">{{ STATUS_META[o.status][0] if LANG == 'ar' else T_STATUS(o.status) }}</span></td>
+        <td class="nowrap">{{ ('بلاغ QR' if o.source == 'qr' else 'لوحة التحكم') if LANG == 'ar' else ('QR' if o.source == 'qr' else 'Dashboard') }}</td>
+        <td class="acts">
+          <a class="btn btn-ghost btn-sm inline" href="/orders/{{ o.id }}">{{ tr('action_view') }}</a>
+          <a class="btn btn-sm inline" href="/orders/{{ o.id }}/edit">{{ tr('action_edit') }}</a>
+          <a class="btn btn-sm inline" href="/orders/{{ o.id }}/print?autoprint=1" target="_blank">🖨</a>
+          <form class="inline" method="post" action="/orders/{{ o.id }}/delete"
+                onsubmit="return confirm('{{ 'حذف' if LANG == 'ar' else 'Delete' }} {{ o.order_no }}?')">
+            <button class="btn btn-danger btn-sm" type="submit">🗑</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="11" class="empty">{{ 'لا توجد أوامر عمل مطابقة.' if LANG == 'ar' else 'No matching work orders.' }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

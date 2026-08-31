@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="{{ LANG }}" dir="{{ 'rtl' if LANG == 'ar' else 'ltr' }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{{ tr('login_title') }} | {{ HOSPITAL_NAME }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="auth-body">
+
+<main class="auth-wrap">
+  <div class="auth-card">
+    {% if LOGO %}<img src="{{ LOGO }}" alt="{{ ORG_RIGHT }}" style="width:80px; height:80px; object-fit:contain; border-radius:12px; border:1px solid var(--line); padding:5px; background:#fff; margin:0 auto 6px; display:block;">{% else %}<div class="auth-logo">🛠️</div>{% endif %}
+    <h1 class="auth-title">{{ tr('login_title') }}</h1>
+    <p class="auth-sub">{{ HOSPITAL_NAME }}<br>{{ ORG_RIGHT }} · {{ DEPARTMENT_NAME }}</p>
+    <div style="margin-bottom:14px;">
+      <a href="?lang={{ 'ar' if LANG == 'en' else 'en' }}" style="color:var(--primary); font-weight:800; font-size:13px;">{{ tr('lang_switch') }}</a>
+    </div>
+
+    {% if err %}
+    <div class="flash flash-bad">{{ tr('login_err') }}</div>
+    {% endif %}
+
+    <form method="post" action="/login" class="auth-form">
+      <input type="hidden" name="next" value="{{ next }}">
+      <label>{{ tr('login_pass') }}</label>
+      <input type="password" name="password" required autofocus placeholder="••••••••" autocomplete="current-password">
+      <button class="btn btn-primary btn-block" type="submit">{{ tr('login_btn') }}</button>
+    </form>
+  </div>
+  <p class="auth-foot">{{ ORG_RIGHT }} · {{ HOSPITAL_NAME }}</p>
+</main>
+
+</body>
+</html>

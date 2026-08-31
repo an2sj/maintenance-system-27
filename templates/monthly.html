@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}{{ tr('nav_monthly') }}{% endblock %}
+{% block content %}
+
+<div class="toolbar">
+  <form method="get" action="/monthly" class="toolbar-form">
+    <select name="year">
+      {% for y in years %}<option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>{% endfor %}
+    </select>
+    <select name="month">
+      {% for i in range(1, 13) %}
+      <option value="{{ i }}" {% if i == month %}selected{% endif %}>{{ MONTHS_AR[i-1] if LANG == 'ar' else MONTHS_EN[i-1] }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-ghost btn-sm" type="submit">{{ tr('mth_show') }}</button>
+  </form>
+  <button class="btn btn-primary push" onclick="window.print()">🖨 {{ tr('mth_print') }}</button>
+</div>
+
+<div class="doc">
+  <div class="doc-head">
+    <div class="d-col">
+      {% if LOGO %}<img src="{{ LOGO }}" alt="{{ ORG_RIGHT }}" style="width:60px; height:60px; object-fit:contain;">{% endif %}
+      <div class="d-name">{{ ORG_RIGHT }}</div>
+      <div class="d-sub">وزارة الصحة — المملكة العربية السعودية</div>
+    </div>
+    <div class="d-col center">
+      <div class="d-name" style="font-size:18px;">{{ HOSPITAL_NAME }}</div>
+      <div class="d-sub">{{ DEPARTMENT_NAME }}</div>
+    </div>
+    <div class="d-col">
+      <div class="d-name">&nbsp;</div>
+      <div class="d-sub">&nbsp;</div>
+    </div>
+  </div>
+
+  <div class="doc-title"><span>{{ tr('mth_title') }} — {{ MONTHS_AR[month-1] if LANG == 'ar' else MONTHS_EN[month-1] }} {{ year }}</span></div>
+
+  <div class="report-summary">
+    <div class="kv"><span>{{ tr('mth_total') }}</span><b>{{ totals.total }}</b></div>
+    <div class="kv"><span>{{ tr('mth_done') }}</span><b>{{ totals.done }}</b></div>
+    <div class="kv"><span>{{ tr('mth_in_progress') }}</span><b>{{ totals.approved }}</b></div>
+    <div class="kv"><span>{{ tr('mth_pending') }}</span><b>{{ totals.pending }}</b></div>
+    <div class="kv"><span>{{ tr('mth_rejected') }}</span><b>{{ totals.rejected }}</b></div>
+    <div class="kv"><span>{{ tr('mth_urgent') }}</span><b>{{ totals.urgent }}</b></div>
+    <div class="kv"><span>{{ tr('mth_rate') }}</span><b>%{{ totals.rate }}</b></div>
+  </div>
+
+  <div class="mini-tables">
+    <table class="tbl tbl-mini">
+      <thead><tr><th>{{ tr('mth_by_section') }}</th><th>{{ tr('mth_count') }}</th></tr></thead>
+      <tbody>
+        {% for k, v in by_section.items() %}<tr><td>{{ k }}</td><td><b>{{ v }}</b></td></tr>
+        {% else %}<tr><td colspan="2" class="empty">—</td></tr>{% endfor %}
+      </tbody>
+    </table>
+    <table class="tbl tbl-mini">
+      <thead><tr><th>{{ tr('mth_by_priority') }}</th><th>{{ tr('mth_count') }}</th></tr></thead>
+      <tbody>
+        {% for k, v in by_priority.items() %}<tr><td>{{ k }}</td><td><b>{{ v }}</b></td></tr>
+        {% else %}<tr><td colspan="2" class="empty">—</td></tr>{% endfor %}
+      </tbody>
+    </table>
+    <table class="tbl tbl-mini">
+      <thead><tr><th>{{ tr('mth_by_status') }}</th><th>{{ tr('mth_count') }}</th></tr></thead>
+      <tbody>
+        {% for k, v in by_status.items() %}
+        <tr><td>{{ STATUS_META[k][0] if (k in STATUS_META and LANG == 'ar') else (T_STATUS(k) if k in STATUS_META else k) }}</td><td><b>{{ v }}</b></td></tr>
+        {% else %}<tr><td colspan="2" class="empty">—</td></tr>{% endfor %}
+      </tbody>
+    </table>
+    <table class="tbl tbl-mini">
+      <thead><tr><th>{{ tr('mth_by_source') }}</th><th>{{ tr('mth_count') }}</th></tr></thead>
+      <tbody>
+        <tr><td>{{ 'بلاغات QR' if LANG == 'ar' else 'QR Reports' }}</td><td><b>{{ by_source.get('qr', 0) }}</b></td></tr>
+        <tr><td>{{ 'إدخال يدوي' if LANG == 'ar' else 'Manual Entry' }}</td><td><b>{{ by_source.get('manual', 0) }}</b></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="doc-label">{{ tr('mth_details') }} ({{ rows|length }})</div>
+  <div class="tbl-wrap">
+    <table class="tbl" style="min-width:0;">
+      <thead>
+        <tr>
+          <th>{{ tr('col_order') }}</th><th>{{ tr('col_title') }}</th><th>{{ tr('col_reporter') }}</th><th>{{ tr('col_location') }}</th>
+          <th>{{ tr('f_maintenance_type') }}</th><th>{{ tr('f_technician') }}</th><th>{{ tr('col_priority') }}</th><th>{{ tr('col_status') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for o in rows %}
+        <tr>
+          <td class="mono nowrap">{{ o.order_no }}</td>
+          <td class="mono nowrap">{{ o.created_at|dt(False) }}</td>
+          <td>{{ o.reporter_name }}</td>
+          <td>{{ o.location }}</td>
+          <td>{{ o.section }}</td>
+          <td>{{ o.technician or '—' }}</td>
+          <td>{{ o.priority if LANG == 'ar' else T_PRIO(o.priority) }}</td>
+          <td>{{ STATUS_META[o.status][0] if (o.status in STATUS_META and LANG == 'ar') else (T_STATUS(o.status) if o.status in STATUS_META else o.status) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="signs">
+    <div class="sign"><span>{{ 'مسؤول الصيانة / التوقيع' if LANG == 'ar' else 'Maintenance Officer / Signature' }}</span><i></i></div>
+    <div class="sign"><span>{{ 'مدير الخدمات المساندة / التوقيع' if LANG == 'ar' else 'Support Services Manager / Signature' }}</span><i></i></div>
+    <div class="sign"><span>{{ 'مدير المستشفى / الاعتماد' if LANG == 'ar' else 'Hospital Director / Approval' }}</span><i></i></div>
+  </div>
+</div>
+
+{% endblock %}

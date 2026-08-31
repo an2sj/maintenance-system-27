@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="{{ LANG }}" dir="{{ 'rtl' if LANG == 'ar' else 'ltr' }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d9488">
+  <meta name="description" content="نظام إدارة الصيانة وأوامر العمل - {{ HOSPITAL_NAME }}">
+  <title>{% block title %}{{ tr('dashboard') }}{% endblock %} | {{ HOSPITAL_NAME }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+  {% block head %}{% endblock %}
+</head>
+<body>
+
+<header class="topbar no-print">
+  <div class="topbar-in">
+    <a class="brand" href="/">
+      {% if LOGO %}<img class="brand-logo" src="{{ LOGO }}" alt="{{ ORG_RIGHT }}">{% else %}
+      <span class="brand-icon">🛠️</span>{% endif %}
+      <span class="brand-text">
+        <strong>{{ HOSPITAL_NAME }}</strong>
+        <small>{{ ORG_RIGHT }} · {{ DEPARTMENT_NAME }}</small>
+      </span>
+    </a>
+    <nav class="nav">
+      <a href="/" {% if path == '/' %}class="active"{% endif %}>{{ tr('nav_dash') }}</a>
+      <a href="/orders/new" {% if path == '/orders/new' %}class="active"{% endif %}>{{ tr('nav_new') }}</a>
+      <a href="/incoming" {% if path == '/incoming' %}class="active"{% endif %}>
+        {{ tr('nav_incoming') }}{% if pending_count %}<span class="pill">{{ pending_count }}</span>{% endif %}
+      </a>
+      <a href="/monthly" {% if path == '/monthly' %}class="active"{% endif %}>{{ tr('nav_monthly') }}</a>
+      <a href="/poster" {% if path == '/poster' %}class="active"{% endif %}>{{ tr('nav_poster') }}</a>
+      <a href="/report" target="_blank" title="{{ tr('title_report') }}">{{ 'بلاغ عام' if LANG == 'ar' else 'Public Report' }}</a>
+      <a class="lang-toggle" href="?lang={{ 'ar' if LANG == 'en' else 'en' }}">{{ tr('lang_switch') }}</a>
+      {% if protected %}<a href="/logout" class="logout">{{ tr('nav_logout') }}</a>{% endif %}
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  {% for level, msg in flashes %}
+  <div class="flash flash-{{ level }}">{{ msg }}</div>
+  {% endfor %}
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="foot no-print">
+  {{ ORG_RIGHT }} · {{ DEPARTMENT_NAME }} · {{ HOSPITAL_NAME }} © <span id="yr"></span>
+  <script>document.getElementById('yr').textContent = new Date().getFullYear();</script>
+</footer>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

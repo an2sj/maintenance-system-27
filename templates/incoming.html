@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}{{ tr('nav_incoming') }}{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1>{{ tr('inc_title') }}</h1>
+  <div class="sub">{{ tr('inc_sub') }}</div>
+</div>
+
+{% if rows %}
+<div class="tbl-wrap">
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th>{{ tr('col_order') }}</th>
+        <th>{{ tr('col_title') }}</th>
+        <th>{{ tr('col_reporter') }}</th>
+        <th>{{ tr('col_contact') }}</th>
+        <th>{{ tr('col_location') }}</th>
+        <th>{{ tr('f_maintenance_type') }}</th>
+        <th>{{ tr('col_priority') }}</th>
+        <th>{{ tr('f_description') }}</th>
+        <th>{{ tr('f_media') }}</th>
+        <th>{{ tr('col_actions') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td><b class="mono">{{ r.order_no }}</b></td>
+        <td class="mono nowrap">{{ r.created_at|dt }}</td>
+        <td>{{ r.reporter_name }}</td>
+        <td class="mono" dir="ltr">{{ r.contact or '—' }}</td>
+        <td class="desc-cell">{{ r.location }}</td>
+        <td>{{ r.section }}</td>
+        <td><span class="prio {{ 'p-c' if r.priority == 'طارئة' else ('p-u' if r.priority == 'مستعجلة' else 'p-n') }}">{{ r.priority if LANG == 'ar' else T_PRIO(r.priority) }}</span></td>
+        <td class="desc-cell">{{ r.description[:80] }}{% if r.description|length > 80 %}…{% endif %}</td>
+        <td class="nowrap">{{ '📎' if r.media else '—' }} {{ (r.media.split(',')|length) if r.media else '' }}</td>
+        <td class="acts">
+          <form class="inline" method="post" action="/incoming/{{ r.id }}/approve"
+                onsubmit="return confirm('{{ 'اعتماد الطلب' if LANG == 'ar' else 'Approve request' }} {{ r.order_no }}?')">
+            <button class="btn btn-ok btn-sm" type="submit">{{ tr('btn_approve') }}</button>
+          </form>
+          <form class="inline" method="post" action="/incoming/{{ r.id }}/reject"
+                onsubmit="return confirm('{{ 'رفض الطلب' if LANG == 'ar' else 'Reject request' }} {{ r.order_no }}?')">
+            <button class="btn btn-danger btn-sm" type="submit">{{ tr('btn_reject') }}</button>
+          </form>
+          <a class="btn btn-ghost btn-sm inline" href="/orders/{{ r.id }}">{{ tr('btn_review') }}</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon">✅</div>
+  <h2>{{ tr('inc_empty_title') }}</h2>
+  <p class="muted">{{ tr('inc_empty_note') }}</p>
+  <a class="btn btn-primary" href="/poster">{{ tr('nav_poster') }}</a>
+</div>
+{% endif %}
+
+{% endblock %}

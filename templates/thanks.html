@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="{{ LANG }}" dir="{{ 'rtl' if LANG == 'ar' else 'ltr' }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{{ tr('thanks_title') }} | {{ HOSPITAL_NAME }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<main class="pub-wrap">
+  <div class="card thanks">
+    {% if LOGO %}<img src="{{ LOGO }}" alt="{{ ORG_RIGHT }}" style="width:72px; height:72px; object-fit:contain; border-radius:10px; border:1px solid var(--line); padding:4px; background:#fff; margin:0 auto 8px; display:block;">{% endif %}
+    <div class="thanks-icon" style="margin-top:6px;">✅</div>
+    <h1>{{ tr('thanks_title') }}</h1>
+    <p class="muted">{{ tr('thanks_ref') }}:</p>
+    <div class="order-no mono">{{ order_no }}</div>
+    {% if reference_id %}<p class="muted" style="font-size:13px;">{{ 'الرقم المرجعي' if LANG == 'ar' else 'Reference ID' }}: <b class="mono">{{ reference_id }}</b></p>{% endif %}
+    <p class="muted">{{ tr('thanks_note') }}</p>
+    <a class="btn btn-primary" href="/report{% if LANG == 'en' %}?lang=en{% endif %}">{{ tr('thanks_again') }}</a>
+  </div>
+</main>
+
+</body>
+</html>

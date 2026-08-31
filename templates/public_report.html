@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="{{ LANG }}" dir="{{ 'rtl' if LANG == 'ar' else 'ltr' }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d9488">
+  <title>{{ tr('title_report') }} | {{ HOSPITAL_NAME }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    .pub-lang { text-align: center; margin-bottom: 8px; }
+    .pub-lang a { display: inline-block; padding: 6px 18px; border-radius: 999px; border: 1.5px solid var(--primary); color: var(--primary-darker); font-weight: 800; font-size: 13px; }
+  </style>
+</head>
+<body>
+
+<main class="pub-wrap">
+  <div class="pub-lang no-print">
+    <a href="?lang={{ 'ar' if LANG == 'en' else 'en' }}">{{ tr('lang_switch') }}</a>
+  </div>
+  <div class="card pub-form">
+    <div class="pub-head" style="display:flex; align-items:center; gap:14px; text-align:right;">
+      {% if LOGO %}<img src="{{ LOGO }}" alt="{{ ORG_RIGHT }}" style="width:64px; height:64px; object-fit:contain; border-radius:10px; border:1px solid var(--line); padding:4px; background:#fff;">{% endif %}
+      <div style="flex:1;">
+        <div class="pub-org">{{ ORG_RIGHT }} · {{ DEPARTMENT_NAME }}</div>
+        <h1>{{ HOSPITAL_NAME }}</h1>
+        <div class="pub-sub">{{ tr('sub_report') }}</div>
+      </div>
+    </div>
+    <div class="pub-head" style="border-top:0; margin-bottom:6px; padding-top:0;">
+      <div class="dyn-hint" style="color:var(--primary);">📌 {{ tr('report_choose_issue') }}</div>
+    </div>
+
+    {% if ok %}
+    <div class="flash flash-ok">{{ 'تم إرسال بلاغك. سيتواصل معك قسم الصيانة عند الحاجة.' if LANG == 'ar' else 'Your report was sent. Maintenance will contact you if needed.' }}</div>
+    {% endif %}
+    {% if err %}
+    <div class="flash flash-bad">{{ tr('col_notes') }} — {{ 'يرجى تعبئة الحقول الإلزامية (*) بشكل صحيح.' if LANG == 'ar' else 'Please fill the required (*) fields correctly.' }}</div>
+    {% endif %}
+
+    <form method="post" action="/report{% if LANG == 'en' %}?lang=en{% endif %}" class="form-grid" enctype="multipart/form-data">
+      <div class="field">
+        <label>{{ tr('f_reporter') }} <em>*</em></label>
+        <input type="text" name="reporter_name" required maxlength="120" placeholder="{{ 'الاسم الكامل' if LANG == 'ar' else 'Full name' }}" autocomplete="name">
+      </div>
+      <div class="field">
+        <label>{{ tr('f_contact') }}</label>
+        <input type="tel" name="contact" dir="ltr" inputmode="tel" pattern="[0-9+\s\-]{7,15}" placeholder="05xxxxxxxx" autocomplete="tel">
+      </div>
+
+      <div class="field wide">
+        <label>{{ tr('f_building') }} <em>*</em></label>
+        <select name="building" id="building" required onchange="updateBuilding(this)">
+          <option value="">{{ tr('select_placeholder') }}</option>
+          {% for b in BUILDINGS %}<option value="{{ b }}">{{ b }}</option>{% endfor %}
+        </select>
+      </div>
+
+      <div class="field wide" id="facility_field" style="display:none;">
+        <label>{{ tr('col_location') }} <em>*</em></label>
+        <select name="unit" id="facility_select">
+          <option value="">{{ tr('select_placeholder') }}</option>
+          {% for f in PUBLIC_FACILITIES %}<option value="{{ f }}">{{ f }}</option>{% endfor %}
+        </select>
+      </div>
+
+      <div class="field wide" id="t56_field" style="display:none;">
+        <label>{{ tr('f_unit') }} <em>*</em></label>
+        <select name="unit" id="t56_select">
+          <option value="">{{ tr('select_placeholder') }}</option>
+          {% for u in T56_UNITS %}<option value="{{ u }}">{{ u }}</option>{% endfor %}
+        </select>
+      </div>
+
+      <div class="field wide" id="t1_field" style="display:none;">
+        <label>{{ 'رقم الشقة (مبنى T1)' if LANG == 'ar' else 'Apartment Number (Building T1)' }} <em>*</em></label>
+        <input type="text" name="unit" id="t1_input" placeholder="{{ 'مثال: 12' if LANG == 'ar' else 'e.g. 12' }}">
+      </div>
+
+      <div class="field">
+        <label>{{ tr('f_maintenance_type') }} <em>*</em></label>
+        <select name="section" id="maint_type" required onchange="updateProblemType(this)">
+          <option value="">{{ tr('select_placeholder') }}</option>
+          {% for mt in MAINTENANCE_TYPES %}<option value="{{ mt }}">{{ mt }}</option>{% endfor %}
+        </select>
+      </div>
+
+      <div class="field">
+        <label>{{ tr('f_problem_type') }}</label>
+        <select name="problem_type" id="problem_type">
+          <option value="">{{ tr('select_placeholder') }}</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>{{ tr('f_priority') }}</label>
+        <select name="priority">
+          {% for p in PRIORITIES %}
+          <option value="{{ p }}" {% if p == 'عادية' %}selected{% endif %}>{{ p }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="field wide">
+        <label>{{ tr('f_description') }} <em>*</em></label>
+        <textarea name="description" rows="4" required placeholder="{{ 'اشرح العطل بدقة: أين يقع، وما المشكلة بالتحديد...' if LANG == 'ar' else 'Describe the issue precisely: where and what...' }}"></textarea>
+      </div>
+
+      <div class="field wide">
+        <label>{{ tr('f_media') }}</label>
+        <input type="file" name="media_files" accept=".jpg,.jpeg,.png,.gif,.webp,.mp4,.mov,.webm" multiple>
+        <div class="dyn-hint">{{ tr('f_media_hint') }}</div>
+      </div>
+
+      <div class="field wide">
+        <button class="btn btn-primary btn-block btn-lg" type="submit">{{ tr('btn_submit') }}</button>
+        <p class="muted center" style="margin-top:10px;">{{ 'بعد الإرسال يدقّق قسم الصيانة البلاغ ويحوّله إلى أمر عمل رسمي.' if LANG == 'ar' else 'After submission, maintenance reviews and converts to an official work order.' }}</p>
+      </div>
+    </form>
+  </div>
+</main>
+
+<footer class="foot">{{ ORG_RIGHT }} · {{ HOSPITAL_NAME }}</footer>
+
+<script>
+  const PROBLEM_TYPES = {{ PROBLEM_TYPES|tojson }};
+  const unitControls = ['facility_select','t56_select','t1_input'];
+  function disableAllUnits(){ unitControls.forEach(function(id){ var el=document.getElementById(id); if(el){ el.disabled=true; } }); }
+  function updateProblemType(sel) {
+    const val = sel.value;
+    const pt = document.getElementById('problem_type');
+    pt.innerHTML = '<option value="">{{ tr('select_placeholder') }}</option>';
+    (PROBLEM_TYPES[val] || []).forEach(function (p) {
+      const opt = document.createElement('option');
+      opt.value = p; opt.textContent = p; pt.appendChild(opt);
+    });
+  }
+  function updateBuilding(sel) {
+    const val = sel.value;
+    ['facility_field','t56_field','t1_field'].forEach(function(id){ document.getElementById(id).style.display='none'; });
+    disableAllUnits();
+    document.getElementById('facility_select').disabled=true;
+    document.getElementById('t56_select').disabled=true;
+    document.getElementById('t1_input').disabled=true;
+    if (val === 'المرافق العامة'){ document.getElementById('facility_field').style.display=''; document.getElementById('facility_select').disabled=false; }
+    else if (val === 'مبنى T5' || val === 'مبنى T6'){ document.getElementById('t56_field').style.display=''; document.getElementById('t56_select').disabled=false; }
+    else if (val === 'مبنى T1'){ document.getElementById('t1_field').style.display=''; document.getElementById('t1_input').disabled=false; }
+  }
+</script>
+</body>
+</html>
