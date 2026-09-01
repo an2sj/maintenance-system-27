@@ -15,15 +15,15 @@ services:
       - key: COOKIE_SECURE
         value: "1"
       - key: SMTP_HOST
-        sync: false
+        value: "smtp.gmail.com"
       - key: SMTP_PORT
-        sync: false
+        value: "587"
       - key: SMTP_USER
-        sync: false
+        value: "mtn.24service@gmail.com"
       - key: SMTP_PASSWORD
         sync: false
       - key: NOTIFY_TO
-        sync: false
+        value: "mtn.24service@gmail.com"
       - key: WHATSAPP_TOKEN
         sync: false
       - key: WHATSAPP_PHONE_ID

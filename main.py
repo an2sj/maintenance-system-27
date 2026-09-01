@@ -372,6 +372,7 @@ def init_db() -> None:
                 reference_id  TEXT UNIQUE,
                 reporter_name TEXT NOT NULL,
                 contact       TEXT NOT NULL DEFAULT '',
+                reporter_email TEXT NOT NULL DEFAULT '',
                 location      TEXT NOT NULL DEFAULT '',
                 building      TEXT NOT NULL DEFAULT '',
                 unit          TEXT NOT NULL DEFAULT '',
@@ -400,6 +401,7 @@ def init_db() -> None:
             "unit": "TEXT NOT NULL DEFAULT ''",
             "problem_type": "TEXT NOT NULL DEFAULT ''",
             "media": "TEXT NOT NULL DEFAULT ''",
+            "reporter_email": "TEXT NOT NULL DEFAULT ''",
         }
         for col, ddl in mig.items():
             if col not in existing:
@@ -1006,9 +1008,55 @@ def _notify_whatsapp(order_no, section, location, reporter_name, contact, descri
         pass
 
 
+def _send_email_to(to: str, subject: str, body: str) -> bool:
+    """إرسال بريد عبر SMTP إذا ضُبطت المتغيرات. تُعيد False إن لم يكن متاحاً."""
+    if not (_env("SMTP_USER") and _env("SMTP_PASSWORD") and to):
+        return False
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = _env("SMTP_USER")
+    msg["To"] = to
+    msg.attach(MIMEText(body, "plain", "utf-8"))
+    try:
+        server = smtplib.SMTP(_env("SMTP_HOST") or "smtp.gmail.com",
+                              int(_env("SMTP_PORT") or 587), timeout=20)
+        server.starttls()
+        server.login(_env("SMTP_USER"), _env("SMTP_PASSWORD"))
+        server.sendmail(_env("SMTP_USER"), [to], msg.as_string())
+        server.quit()
+        return True
+    except Exception:
+        return False
+
+
+def _send_rating_email(order_no, reporter_name, reporter_email, description):
+    """رسالة تقييم الخدمة تُرسل لبريد المبلّغ بعد إنجاز العمل."""
+    subject = f"تقييم الخدمة — أمر العمل {order_no} 🛒"
+    body = (
+        f"السلام عليكم {reporter_name}،\n\n"
+        f"نشكرك على تواصلك معنا بخصوص طلب الصيانة رقم {order_no}.\n"
+        f"يسرنا أن نعلمك أن العمل قد تم إنجازه بنجاح ✅.\n\n"
+        f"نأمل منك تقييم جودة الخدمة المقدمة لنا من 1 إلى 5، "
+        f"حيث 1 = ضعيف و 5 = ممتاز.\n\n"
+        f"🔹 ممتاز (5)   🔹 جيد (4)   🔹 متوسط (3)   🔹 ضعيف (2)   🔹 سيئ (1)\n\n"
+        f"يمكنك الرد على هذه الرسالة بدرجة التقييم، أو عبر الهاتف.\n"
+        f"نقدّر ملاحظاتك لتحسين الخدمة.\n\n"
+        f"تفاصيل الطلب:\n"
+        f"رقم الأمر: {order_no}\n"
+        f"الوصف: {description[:150]}\n\n"
+        f"شكراً لكم,\n"
+        f"فريق الصيانة"
+    )
+    _send_email_to(reporter_email or _env("NOTIFY_TO"), subject, body)
+
+
+
 def insert_order(reporter_name, contact, location, section, priority,
                  technician, description, problem_type="", building="",
-                 unit="", media="", status="pending", source="manual") -> tuple[int, str, str]:
+                 unit="", media="", status="pending", source="manual",
+                 reporter_email="") -> tuple[int, str, str]:
     if priority not in PRIORITIES:
         priority = "عادية"
     now = now_local()
@@ -1016,13 +1064,14 @@ def insert_order(reporter_name, contact, location, section, priority,
         cur = c.execute(
             """
             INSERT INTO work_orders
-                (reporter_name, contact, location, building, unit, section,
+                (reporter_name, contact, reporter_email, location, building, unit, section,
                  problem_type, priority, technician, description, media,
                  status, source, token, created_at, completed_at)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """,
             (
-                reporter_name.strip(), contact.strip(), location.strip(),
+                reporter_name.strip(), contact.strip(),
+                (reporter_email or "").strip(), location.strip(),
                 building.strip(), unit.strip(), section.strip() or "أخرى",
                 problem_type.strip(), priority, technician.strip(),
                 description.strip(), media, status, source,
@@ -1123,6 +1172,7 @@ def new_order_page(request: Request):
 def create_order(
     reporter_name: str = Form(...),
     contact: str = Form(""),
+    reporter_email: str = Form(""),
     location: str = Form(""),
     building: str = Form(""),
     unit: str = Form(""),
@@ -1144,6 +1194,7 @@ def create_order(
         technician, description,
         problem_type=problem_type, building=building, unit=unit,
         media=",".join(saved), status="approved", source="manual",
+        reporter_email=reporter_email,
     )
     return RedirectResponse(f"/orders/{oid}?created=1", status_code=303)
 
@@ -1181,7 +1232,7 @@ def update_order(order_id: int, status: str = Form(...), technician: str = Form(
     now = now_local()
     with db() as c:
         existing = c.execute(
-            "SELECT status, completed_at FROM work_orders WHERE id=?", (order_id,)
+            "SELECT * FROM work_orders WHERE id=?", (order_id,)
         ).fetchone()
         if existing is None:
             raise HTTPException(status_code=404, detail="not found")
@@ -1204,6 +1255,14 @@ def update_order(order_id: int, status: str = Form(...), technician: str = Form(
                 completed_at, completed_at, completed_at,
                 order_id,
             ),
+        )
+    # عند إنجاز العمل: إرسال رسالة تقييم عبر البريد إلى المبلّغ
+    if status == "done" and existing["status"] != "done":
+        _send_rating_email(
+            order_no=existing["order_no"],
+            reporter_name=existing["reporter_name"],
+            reporter_email=existing["reporter_email"],
+            description=existing["description"],
         )
     return RedirectResponse(f"/orders/{order_id}?updated=1", status_code=303)
 
@@ -1351,6 +1410,7 @@ def public_report_submit(
     request: Request,
     reporter_name: str = Form(...),
     contact: str = Form(""),
+    reporter_email: str = Form(""),
     location: str = Form(""),
     building: str = Form(""),
     unit: str = Form(""),
@@ -1370,6 +1430,7 @@ def public_report_submit(
         "", description,
         problem_type=problem_type, building=building, unit=unit,
         media=",".join(saved), status="pending", source="qr",
+        reporter_email=reporter_email,
     )
     # تنبيه فوري (بريد و/أو WhatsApp) — يُتجاهل بصمت إن لم تُضبط المتغيرات
     try:
