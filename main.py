@@ -1092,6 +1092,9 @@ def dashboard(request: Request, status: str = "", q: str = ""):
             t = (r["technician"] or "غير معيّن").strip() or "غير معيّن"
             dist_tech[t] = dist_tech.get(t, 0) + 1
             dist_priority[r["priority"]] = dist_priority.get(r["priority"], 0) + 1
+        recent = c.execute(
+            "SELECT * FROM work_orders WHERE status='pending' ORDER BY id DESC LIMIT 8"
+        ).fetchall()
 
     chart = {
         "status": dist_status,
@@ -1103,6 +1106,7 @@ def dashboard(request: Request, status: str = "", q: str = ""):
     return templates.TemplateResponse(
         request, "dashboard.html",
         context(request, orders=orders, stats=stats, q=q, status=status,
+                recent=recent,
                 chart_data=json.dumps(chart, ensure_ascii=False)),
     )
 
