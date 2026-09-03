@@ -1011,6 +1011,7 @@ def _notify_whatsapp(order_no, section, location, reporter_name, contact, descri
 def _send_email_to(to: str, subject: str, body: str) -> bool:
     """إرسال بريد عبر SMTP إذا ضُبطت المتغيرات. تُعيد False إن لم يكن متاحاً."""
     if not (_env("SMTP_USER") and _env("SMTP_PASSWORD") and to):
+        print(f"[EMAIL SKIP] SMTP_USER={bool(_env('SMTP_USER'))} SMTP_PASSWORD={bool(_env('SMTP_PASSWORD'))} to={to}")
         return False
     from email.mime.multipart import MIMEMultipart
     from email.mime.text import MIMEText
@@ -1027,7 +1028,8 @@ def _send_email_to(to: str, subject: str, body: str) -> bool:
         server.sendmail(_env("SMTP_USER"), [to], msg.as_string())
         server.quit()
         return True
-    except Exception:
+    except Exception as e:
+        print(f"[EMAIL ERROR] {e}")
         return False
 
 
@@ -1050,6 +1052,7 @@ def _send_rating_email(order_no, reporter_name, reporter_email, description):
         f"فريق الصيانة"
     )
     _send_email_to(reporter_email or _env("NOTIFY_TO"), subject, body)
+    print(f"[EMAIL] Rating email sent to: {reporter_email or _env('NOTIFY_TO')} for order {order_no}")
 
 
 
