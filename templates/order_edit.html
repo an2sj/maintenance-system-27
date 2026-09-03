@@ -23,6 +23,11 @@
       <label>{{ tr('f_contact') }}</label>
       <input type="tel" name="contact" dir="ltr" inputmode="tel" value="{{ o.contact }}">
     </div>
+    <div class="field">
+      <label>{{ 'البريد الإلكتروني' if LANG == 'ar' else 'Email' }}</label>
+      <input type="email" name="reporter_email" dir="ltr" inputmode="email" value="{{ o.reporter_email }}" placeholder="example@mail.com">
+      <div class="dyn-hint">{{ 'لإرسال رسالة تقييم الخدمة بعد الإنجاز.' if LANG == 'ar' else 'For sending service rating after completion.' }}</div>
+    </div>
 
     <div class="field wide">
       <label>{{ tr('f_building') }}</label>

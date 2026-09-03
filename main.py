@@ -1106,6 +1106,7 @@ def _notify_whatsapp(order_no, section, location, reporter_name, contact, descri
 def _send_email_to(to: str, subject: str, body: str) -> bool:
     """إرسال بريد عبر SMTP إذا ضُبطت المتغيرات. تُعيد False إن لم يكن متاحاً."""
     if not (_env("SMTP_USER") and _env("SMTP_PASSWORD") and to):
+        print(f"[EMAIL SKIP] SMTP_USER={bool(_env('SMTP_USER'))} SMTP_PASSWORD={bool(_env('SMTP_PASSWORD'))} to={to}")
         return False
     from email.mime.multipart import MIMEMultipart
     from email.mime.text import MIMEText
@@ -1114,16 +1115,49 @@ def _send_email_to(to: str, subject: str, body: str) -> bool:
     msg["From"] = _env("SMTP_USER")
     msg["To"] = to
     msg.attach(MIMEText(body, "plain", "utf-8"))
+    import socket
+    host = _env("SMTP_HOST") or "smtp.gmail.com"
+    user = _env("SMTP_USER")
+    pwd = _env("SMTP_PASSWORD")
+    # محاولة 1: SSL على البورت 465 (يعمل بشكل أفضل على Render)
     try:
-        server = smtplib.SMTP(_env("SMTP_HOST") or "smtp.gmail.com",
-                              int(_env("SMTP_PORT") or 587), timeout=20)
-        server.starttls()
-        server.login(_env("SMTP_USER"), _env("SMTP_PASSWORD"))
-        server.sendmail(_env("SMTP_USER"), [to], msg.as_string())
+        print(f"[EMAIL] Trying SMTP_SSL {host}:465 ...")
+        server = smtplib.SMTP_SSL(host, 465, timeout=20)
+        server.login(user, pwd)
+        server.sendmail(user, [to], msg.as_string())
         server.quit()
+        print(f"[EMAIL] Sent successfully via SSL 465")
         return True
-    except Exception:
-        return False
+    except Exception as e1:
+        print(f"[EMAIL] SSL 465 failed: {e1}")
+    # محاولة 2: TLS على البورت 587
+    try:
+        print(f"[EMAIL] Trying SMTP {host}:587 ...")
+        server = smtplib.SMTP(host, 587, timeout=20)
+        server.starttls()
+        server.login(user, pwd)
+        server.sendmail(user, [to], msg.as_string())
+        server.quit()
+        print(f"[EMAIL] Sent successfully via TLS 587")
+        return True
+    except Exception as e2:
+        print(f"[EMAIL] TLS 587 failed: {e2}")
+    # محاولة 3: DNS يدوياً IPv4
+    try:
+        print(f"[EMAIL] Trying manual IPv4 lookup ...")
+        addrs = socket.getaddrinfo(host, 587, socket.AF_INET, socket.SOCK_STREAM)
+        ip = addrs[0][4][0]
+        print(f"[EMAIL] Resolved {host} -> {ip}")
+        server = smtplib.SMTP(ip, 587, timeout=20)
+        server.starttls()
+        server.login(user, pwd)
+        server.sendmail(user, [to], msg.as_string())
+        server.quit()
+        print(f"[EMAIL] Sent successfully via IPv4 {ip}")
+        return True
+    except Exception as e3:
+        print(f"[EMAIL] IPv4 failed: {e3}")
+    return False
 
 
 def _send_rating_email(order_no, reporter_name, reporter_email, description):
@@ -1145,6 +1179,7 @@ def _send_rating_email(order_no, reporter_name, reporter_email, description):
         f"فريق الصيانة"
     )
     _send_email_to(reporter_email or _env("NOTIFY_TO"), subject, body)
+    print(f"[EMAIL] Rating email sent to: {reporter_email or _env('NOTIFY_TO')} for order {order_no}")
 
 
 
@@ -1389,6 +1424,7 @@ def order_edit_submit(
     order_id: int,
     reporter_name: str = Form(...),
     contact: str = Form(""),
+    reporter_email: str = Form(""),
     location: str = Form(""),
     building: str = Form(""),
     unit: str = Form(""),
@@ -1406,13 +1442,13 @@ def order_edit_submit(
         c.execute(
             """
             UPDATE work_orders
-            SET reporter_name=?, contact=?, location=?, building=?, unit=?,
+            SET reporter_name=?, contact=?, reporter_email=?, location=?, building=?, unit=?,
                 section=?, problem_type=?, priority=?, technician=?, description=?
             WHERE id=?
             """,
             (
-                reporter_name.strip(), contact.strip(), location.strip(),
-                building.strip(), unit.strip(), section.strip(),
+                reporter_name.strip(), contact.strip(), reporter_email.strip(),
+                location.strip(), building.strip(), unit.strip(), section.strip(),
                 problem_type.strip(), priority, technician.strip(),
                 description.strip(), order_id,
             ),
