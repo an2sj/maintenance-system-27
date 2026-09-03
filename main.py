@@ -1068,13 +1068,39 @@ def notify_new_request(order_no: str, section: str, location: str,
     _notify_whatsapp(order_no, section, location, reporter_name, contact, description)
 
 
+def _send_via_resend(to: str, subject: str, body: str) -> bool:
+    """إرسال بريد عبر Resend REST API (HTTPS). تُعيد True عند النجاح."""
+    key = _env("RESEND_API_KEY")
+    if not (key and to):
+        print(f"[EMAIL RESEND] skipped: key={bool(key)} to={to}")
+        return False
+    frm = _env("RESEND_FROM") or "maintenance@resend.dev"
+    payload = {"from": frm, "to": [to], "subject": subject, "text": body}
+    req = urllib.request.Request(
+        "https://api.resend.com/emails",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Authorization": f"Bearer {key}",
+                 "Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=25) as resp:
+            resp.read()
+        print(f"[EMAIL RESEND] sent OK to {to}: {subject}")
+        return True
+    except Exception as e:
+        print(f"[EMAIL RESEND] FAILED to={to}: {e}")
+        return False
+
+
 def _notify_email(order_no, section, location, reporter_name, contact, description):
-    if not (_env("SMTP_USER") and _env("SMTP_PASSWORD") and _env("NOTIFY_TO")):
-        print(f"[EMAIL NOTIFY] skipped (missing SMTP_USER/SMTP_PASSWORD/NOTIFY_TO) "
-              f"user={bool(_env('SMTP_USER'))} pwd={bool(_env('SMTP_PASSWORD'))} "
-              f"notify={bool(_env('NOTIFY_TO'))}")
+    if not _env("RESEND_API_KEY"):
+        print("[EMAIL NOTIFY] skipped (missing RESEND_API_KEY)")
         return
     to = _env("NOTIFY_TO")
+    if not to:
+        print("[EMAIL NOTIFY] skipped (missing NOTIFY_TO)")
+        return
     subject = f"[بلاغ صيانة جديد] {order_no} - {section}"
     body = (
         f"بلاغ صيانة جديد 🛠️\n\n"
@@ -1084,20 +1110,7 @@ def _notify_email(order_no, section, location, reporter_name, contact, descripti
         f"المُبلّغ: {reporter_name} ({contact})\n\n"
         f"الوصف:\n{description}\n"
     )
-    from email.mime.multipart import MIMEMultipart
-    from email.mime.text import MIMEText
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = _env("SMTP_USER")
-    msg["To"] = to
-    msg.attach(MIMEText(body, "plain", "utf-8"))
-    try:
-        server = smtplib.SMTP(_env("SMTP_HOST") or "smtp.gmail.com",
-                              int(_env("SMTP_PORT") or 587), timeout=20)
-        server.starttls()
-        server.login(_env("SMTP_USER"), _env("SMTP_PASSWORD"))
-        server.sendmail(_env("SMTP_USER"), [to], msg.as_string())
-        server.quit()
+    _send_via_resend(to, subject, body)
         print(f"[EMAIL NOTIFY] sent OK to {to} for {order_no}")
     except Exception as e:
         print(f"[EMAIL NOTIFY] FAILED for {order_no}: {e}")
@@ -1136,72 +1149,8 @@ def _notify_whatsapp(order_no, section, location, reporter_name, contact, descri
 
 
 def _send_email_to(to: str, subject: str, body: str) -> bool:
-    """إرسال بريد عبر SMTP إذا ضُبطت المتغيرات. تُعيد False إن لم يكن متاحاً."""
-    if not (_env("SMTP_USER") and _env("SMTP_PASSWORD") and to):
-        print(f"[EMAIL SKIP] SMTP_USER={bool(_env('SMTP_USER'))} SMTP_PASSWORD={bool(_env('SMTP_PASSWORD'))} to={to}")
-        return False
-    from email.mime.multipart import MIMEMultipart
-    from email.mime.text import MIMEText
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = _env("SMTP_USER")
-    msg["To"] = to
-    msg.attach(MIMEText(body, "plain", "utf-8"))
-    import socket, time
-    host = _env("SMTP_HOST") or "smtp.gmail.com"
-    user = _env("SMTP_USER")
-    pwd = _env("SMTP_PASSWORD")
-
-    def is_network_error(e) -> bool:
-        txt = str(e)
-        return ("Network is unreachable" in txt or "timed out" in txt
-                or "timed_out" in txt or "No route" in txt
-                or "connection refused" in txt.lower() or "econn" in txt.lower())
-
-    attempts = 3
-    for attempt in range(1, attempts + 1):
-        if attempt > 1:
-            print(f"[EMAIL] Retry {attempt}/{attempts} after {attempt * 5}s (network issue)")
-            time.sleep(attempt * 5)
-        # محاولة 1: SSL على البورت 465 (يعمل بشكل أفضل على Render)
-        try:
-            print(f"[EMAIL] Trying SMTP_SSL {host}:465 ...")
-            server = smtplib.SMTP_SSL(host, 465, timeout=25)
-            server.login(user, pwd)
-            server.sendmail(user, [to], msg.as_string())
-            server.quit()
-            print(f"[EMAIL] Sent successfully via SSL 465")
-            return True
-        except Exception as e1:
-            print(f"[EMAIL] SSL 465 failed: {e1}")
-        # محاولة 2: TLS على البورت 587
-        try:
-            print(f"[EMAIL] Trying SMTP {host}:587 ...")
-            server = smtplib.SMTP(host, 587, timeout=25)
-            server.starttls()
-            server.login(user, pwd)
-            server.sendmail(user, [to], msg.as_string())
-            server.quit()
-            print(f"[EMAIL] Sent successfully via TLS 587")
-            return True
-        except Exception as e2:
-            print(f"[EMAIL] TLS 587 failed: {e2}")
-        # محاولة 3: DNS يدوياً IPv4
-        try:
-            print(f"[EMAIL] Trying manual IPv4 lookup ...")
-            addrs = socket.getaddrinfo(host, 587, socket.AF_INET, socket.SOCK_STREAM)
-            ip = addrs[0][4][0]
-            print(f"[EMAIL] Resolved {host} -> {ip}")
-            server = smtplib.SMTP(ip, 587, timeout=25)
-            server.starttls()
-            server.login(user, pwd)
-            server.sendmail(user, [to], msg.as_string())
-            server.quit()
-            print(f"[EMAIL] Sent successfully via IPv4 {ip}")
-            return True
-        except Exception as e3:
-            print(f"[EMAIL] IPv4 failed: {e3}")
-    return False
+    """إرسال بريد عبر Resend REST API (HTTPS). تُعيد True عند النجاح."""
+    return _send_via_resend(to, subject, body)
 
 
 def _send_rating_email(order_no, reporter_name, reporter_email, description):
