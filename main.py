@@ -1111,9 +1111,6 @@ def _notify_email(order_no, section, location, reporter_name, contact, descripti
         f"الوصف:\n{description}\n"
     )
     _send_via_resend(to, subject, body)
-        print(f"[EMAIL NOTIFY] sent OK to {to} for {order_no}")
-    except Exception as e:
-        print(f"[EMAIL NOTIFY] FAILED for {order_no}: {e}")
 
 
 def _notify_whatsapp(order_no, section, location, reporter_name, contact, description):
