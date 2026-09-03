@@ -368,6 +368,34 @@ def _q(sql: str) -> str:
     return sql
 
 
+class _Row(dict):
+    """صف يدعم الفهرسة الرقمية (r[0]) والاسمية (r['col']) معًا مثل sqlite3.Row."""
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return list(super().values())[key]
+        return super().__getitem__(key)
+
+    def keys(self):
+        return list(super().keys())
+
+
+class _Result:
+    """غلاف مؤشّر PostgreSQL: يحوّل صفوف القاموس إلى _Row لدعم الفهرستين."""
+    def __init__(self, cursor):
+        self._c = cursor
+
+    def fetchone(self):
+        r = self._c.fetchone()
+        return None if r is None else _Row(r)
+
+    def fetchall(self):
+        return [_Row(r) for r in self._c.fetchall()]
+
+    def fetchmany(self, n=None):
+        out = self._c.fetchmany(n) if n is not None else self._c.fetchmany()
+        return [_Row(r) for r in out]
+
+
 class _DB:
     """غلاف موحّد لقاعدة البيانات: PostgreSQL أو SQLite."""
     def __init__(self, conn, is_pg: bool):
@@ -376,7 +404,7 @@ class _DB:
 
     def execute(self, sql, params=()):
         if self.is_pg:
-            return self.conn.execute(_q(sql), params or None)
+            return _Result(self.conn.execute(_q(sql), params or None))
         return self.conn.execute(sql, params)
 
     def executescript(self, script):
