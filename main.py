@@ -450,7 +450,7 @@ def init_db() -> None:
                 "CREATE INDEX IF NOT EXISTS idx_wo_created ON work_orders(created_at)"
             ))
             # ترحيل: إضافة الأعمدة المفقودة في PostgreSQL
-            cols = {r[0] for r in c.execute(_q(
+            cols = {r["column_name"] for r in c.execute(_q(
                 "SELECT column_name FROM information_schema.columns WHERE table_name='work_orders'"
             )).fetchall()}
             for col, ddl in _MIG_COLUMNS.items():
