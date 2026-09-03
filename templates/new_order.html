@@ -17,6 +17,10 @@
       <label>{{ tr('f_contact') }}</label>
       <input type="tel" name="contact" dir="ltr" inputmode="tel" pattern="[0-9+\s\-]{7,15}" placeholder="05xxxxxxxx">
     </div>
+    <div class="field">
+      <label>{{ 'البريد الإلكتروني للتواصل' if LANG == 'ar' else 'Contact email' }}</label>
+      <input type="email" name="reporter_email" dir="ltr" inputmode="email" placeholder="{{ 'example@mail.com' if LANG == 'ar' else 'example@mail.com' }}">
+    </div>
 
     <div class="field wide">
       <label>{{ tr('f_building') }} <em>*</em></label>

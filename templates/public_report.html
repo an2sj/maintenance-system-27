@@ -47,6 +47,11 @@
         <label>{{ tr('f_contact') }}</label>
         <input type="tel" name="contact" dir="ltr" inputmode="tel" pattern="[0-9+\s\-]{7,15}" placeholder="05xxxxxxxx" autocomplete="tel">
       </div>
+      <div class="field">
+        <label>{{ 'البريد الإلكتروني للتواصل' if LANG == 'ar' else 'Contact email' }}</label>
+        <input type="email" name="reporter_email" dir="ltr" inputmode="email" placeholder="{{ 'example@mail.com' if LANG == 'ar' else 'example@mail.com' }}" autocomplete="email">
+        <div class="dyn-hint">{{ 'أدخله لنرسل لك حالة بلاغك وتقييم الخدمة بعد الإنجاز.' if LANG == 'ar' else 'We will email you the status and a service rating after completion.' }}</div>
+      </div>
 
       <div class="field wide">
         <label>{{ tr('f_building') }} <em>*</em></label>

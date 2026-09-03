@@ -13,9 +13,10 @@
       </div>
     </div>
     <div class="page-actions">
+      <a class="btn btn-ghost" href="/orders/{{ o.id }}/qr.png">{{ 'تحميل QR' if LANG == 'ar' else 'Download QR' }} ⬇</a>
       <a class="btn btn-ghost" href="/orders/{{ o.id }}/edit">{{ tr('action_edit') }}</a>
-      <a class="btn btn-ghost" href="/orders/{{ o.id }}/print?autoprint=1" target="_blank">{{ tr('btn_print_header') }}</a>
-      <a class="btn btn-ghost" href="/track/{{ o.token }}" target="_blank">{{ tr('btn_track') }}</a>
+      <a class="btn btn-ghost" href="/orders/{{ o.id }}/print?autoprint=1">{{ tr('btn_print_header') }}</a>
+      <a class="btn btn-ghost" href="/track/{{ o.token }}">{{ tr('btn_track') }}</a>
     </div>
   </div>
 </div>
