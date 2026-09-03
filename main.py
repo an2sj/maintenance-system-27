@@ -42,8 +42,8 @@ BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 TEMPLATES_DIR = BASE_DIR / "templates"
 
-# مسار قاعدة البيانات: يسمح للبيئة السحابية بتوجيهه إلى قرص دائم
-# على Render: نستخدم القرص المثبت على /data تلقائياً إن توفر، وإلا نستخدم مجلد المشروع محلياً
+# قاعدة البيانات: PostgreSQL (Neon) عبر DATABASE_URL إن وُجد، وإلا SQLite محلي
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 _default_db = Path("/data/maintenance.db") if Path("/data").is_dir() else BASE_DIR / "data" / "maintenance.db"
 DB_PATH = Path(os.environ.get("DB_PATH", str(_default_db)))
 
@@ -345,67 +345,162 @@ setup_values()
 
 
 # --------------------------------------------------------------------------- #
-# قاعدة البيانات
+# قاعدة البيانات: PostgreSQL (Neon) عبر DATABASE_URL إن وُجد، وإلا SQLite محلي
 # --------------------------------------------------------------------------- #
-DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+def _conn() :
+    """إنشاء اتصال: PostgreSQL إن وُجد DATABASE_URL، وإلا SQLite."""
+    if DATABASE_URL:
+        import psycopg
+        return psycopg.connect(DATABASE_URL, row_factory=psycopg.rows.dict_row)
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    import sqlite3
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
+
+
+def _q(sql: str) -> str:
+    """تحويل صيغة ? إلى %s عند استخدام PostgreSQL."""
+    if DATABASE_URL:
+        return sql.replace("?", "%s")
+    return sql
+
+
+class _DB:
+    """غلاف موحّد لقاعدة البيانات: PostgreSQL أو SQLite."""
+    def __init__(self, conn, is_pg: bool):
+        self.conn = conn
+        self.is_pg = is_pg
+
+    def execute(self, sql, params=()):
+        if self.is_pg:
+            return self.conn.execute(_q(sql), params or None)
+        return self.conn.execute(sql, params)
+
+    def executescript(self, script):
+        if self.is_pg:
+            raise RuntimeError("executescript غير مدعوم في PostgreSQL")
+        return self.conn.executescript(script)
+
+    @property
+    def lastrowid(self):
+        return self.conn.lastrowid if not self.is_pg else None
+
+    def commit(self):
+        self.conn.commit()
+
+    def rollback(self):
+        self.conn.rollback()
+
+    def close(self):
+        self.conn.close()
 
 
 @contextmanager
 def db():
-    conn = __import__("sqlite3").connect(DB_PATH)
-    conn.row_factory = __import__("sqlite3").Row
-    conn.execute("PRAGMA foreign_keys = ON")
+    conn = _conn()
+    wrapper = _DB(conn, bool(DATABASE_URL))
     try:
-        yield conn
-        conn.commit()
+        yield wrapper
+        wrapper.commit()
+    except Exception:
+        wrapper.rollback()
+        raise
     finally:
-        conn.close()
+        wrapper.close()
 
 
 def init_db() -> None:
     with db() as c:
-        c.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS work_orders (
-                id            INTEGER PRIMARY KEY AUTOINCREMENT,
-                order_no      TEXT UNIQUE,
-                reference_id  TEXT UNIQUE,
-                reporter_name TEXT NOT NULL,
-                contact       TEXT NOT NULL DEFAULT '',
-                reporter_email TEXT NOT NULL DEFAULT '',
-                location      TEXT NOT NULL DEFAULT '',
-                building      TEXT NOT NULL DEFAULT '',
-                unit          TEXT NOT NULL DEFAULT '',
-                section       TEXT NOT NULL DEFAULT '',
-                problem_type  TEXT NOT NULL DEFAULT '',
-                priority      TEXT NOT NULL DEFAULT 'عادية',
-                technician    TEXT NOT NULL DEFAULT '',
-                description   TEXT NOT NULL DEFAULT '',
-                notes         TEXT NOT NULL DEFAULT '',
-                media         TEXT NOT NULL DEFAULT '',
-                status        TEXT NOT NULL DEFAULT 'pending',
-                source        TEXT NOT NULL DEFAULT 'manual',
-                token         TEXT UNIQUE,
-                created_at    TEXT NOT NULL,
-                completed_at  TEXT
-            );
-            CREATE INDEX IF NOT EXISTS idx_wo_status ON work_orders(status);
-            CREATE INDEX IF NOT EXISTS idx_wo_created ON work_orders(created_at);
-            """
-        )
-        # ترحيل للأرشيف: إضافة الأعمدة الجديدة إن لم تكن موجودة (توافق بيانات قديمة)
-        existing = {r[1] for r in c.execute("PRAGMA table_info(work_orders)").fetchall()}
-        mig = {
-            "reference_id": "TEXT",
-            "building": "TEXT NOT NULL DEFAULT ''",
-            "unit": "TEXT NOT NULL DEFAULT ''",
-            "problem_type": "TEXT NOT NULL DEFAULT ''",
-            "media": "TEXT NOT NULL DEFAULT ''",
-            "reporter_email": "TEXT NOT NULL DEFAULT ''",
-        }
-        for col, ddl in mig.items():
-            if col not in existing:
-                c.execute(f"ALTER TABLE work_orders ADD COLUMN {col} {ddl}")
+        if DATABASE_URL:
+            # PostgreSQL DDL
+            c.execute(_q(
+                """
+                CREATE TABLE IF NOT EXISTS work_orders (
+                    id            BIGSERIAL PRIMARY KEY,
+                    order_no      TEXT UNIQUE,
+                    reference_id  TEXT UNIQUE,
+                    reporter_name TEXT NOT NULL,
+                    contact       TEXT NOT NULL DEFAULT '',
+                    reporter_email TEXT NOT NULL DEFAULT '',
+                    location      TEXT NOT NULL DEFAULT '',
+                    building      TEXT NOT NULL DEFAULT '',
+                    unit          TEXT NOT NULL DEFAULT '',
+                    section       TEXT NOT NULL DEFAULT '',
+                    problem_type  TEXT NOT NULL DEFAULT '',
+                    priority      TEXT NOT NULL DEFAULT 'عادية',
+                    technician    TEXT NOT NULL DEFAULT '',
+                    description   TEXT NOT NULL DEFAULT '',
+                    notes         TEXT NOT NULL DEFAULT '',
+                    media         TEXT NOT NULL DEFAULT '',
+                    status        TEXT NOT NULL DEFAULT 'pending',
+                    source        TEXT NOT NULL DEFAULT 'manual',
+                    token         TEXT UNIQUE,
+                    created_at    TEXT NOT NULL,
+                    completed_at  TEXT
+                )
+                """
+            ))
+            c.execute(_q(
+                "CREATE INDEX IF NOT EXISTS idx_wo_status ON work_orders(status)"
+            ))
+            c.execute(_q(
+                "CREATE INDEX IF NOT EXISTS idx_wo_created ON work_orders(created_at)"
+            ))
+            # ترحيل: إضافة الأعمدة المفقودة في PostgreSQL
+            cols = {r[0] for r in c.execute(_q(
+                "SELECT column_name FROM information_schema.columns WHERE table_name='work_orders'"
+            )).fetchall()}
+            for col, ddl in _MIG_COLUMNS.items():
+                if col not in cols:
+                    c.execute(_q(f"ALTER TABLE work_orders ADD COLUMN {col} {ddl}"))
+        else:
+            # SQLite DDL
+            c.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS work_orders (
+                    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                    order_no      TEXT UNIQUE,
+                    reference_id  TEXT UNIQUE,
+                    reporter_name TEXT NOT NULL,
+                    contact       TEXT NOT NULL DEFAULT '',
+                    reporter_email TEXT NOT NULL DEFAULT '',
+                    location      TEXT NOT NULL DEFAULT '',
+                    building      TEXT NOT NULL DEFAULT '',
+                    unit          TEXT NOT NULL DEFAULT '',
+                    section       TEXT NOT NULL DEFAULT '',
+                    problem_type  TEXT NOT NULL DEFAULT '',
+                    priority      TEXT NOT NULL DEFAULT 'عادية',
+                    technician    TEXT NOT NULL DEFAULT '',
+                    description   TEXT NOT NULL DEFAULT '',
+                    notes         TEXT NOT NULL DEFAULT '',
+                    media         TEXT NOT NULL DEFAULT '',
+                    status        TEXT NOT NULL DEFAULT 'pending',
+                    source        TEXT NOT NULL DEFAULT 'manual',
+                    token         TEXT UNIQUE,
+                    created_at    TEXT NOT NULL,
+                    completed_at  TEXT
+                );
+                CREATE INDEX IF NOT EXISTS idx_wo_status ON work_orders(status);
+                CREATE INDEX IF NOT EXISTS idx_wo_created ON work_orders(created_at);
+                """
+            )
+            existing = {r[1] for r in c.execute("PRAGMA table_info(work_orders)").fetchall()}
+            for col, ddl in _MIG_COLUMNS.items():
+                if col not in existing:
+                    c.execute(f"ALTER TABLE work_orders ADD COLUMN {col} {ddl}")
+
+
+_MIG_COLUMNS = {
+    "reference_id": "TEXT",
+    "building": "TEXT NOT NULL DEFAULT ''",
+    "unit": "TEXT NOT NULL DEFAULT ''",
+    "problem_type": "TEXT NOT NULL DEFAULT ''",
+    "media": "TEXT NOT NULL DEFAULT ''",
+    "reporter_email": "TEXT NOT NULL DEFAULT ''",
+}
 
 
 init_db()
@@ -1061,25 +1156,47 @@ def insert_order(reporter_name, contact, location, section, priority,
         priority = "عادية"
     now = now_local()
     with db() as c:
-        cur = c.execute(
-            """
-            INSERT INTO work_orders
-                (reporter_name, contact, reporter_email, location, building, unit, section,
-                 problem_type, priority, technician, description, media,
-                 status, source, token, created_at, completed_at)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-            """,
-            (
-                reporter_name.strip(), contact.strip(),
-                (reporter_email or "").strip(), location.strip(),
-                building.strip(), unit.strip(), section.strip() or "أخرى",
-                problem_type.strip(), priority, technician.strip(),
-                description.strip(), media, status, source,
-                secrets.token_hex(8), fmt(now),
-                fmt(now) if status == "done" and source == "manual" else None,
-            ),
-        )
-        oid = cur.lastrowid
+        if DATABASE_URL:
+            ret = c.execute(
+                """
+                INSERT INTO work_orders
+                    (reporter_name, contact, reporter_email, location, building, unit, section,
+                     problem_type, priority, technician, description, media,
+                     status, source, token, created_at, completed_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                RETURNING id
+                """,
+                (
+                    reporter_name.strip(), contact.strip(),
+                    (reporter_email or "").strip(), location.strip(),
+                    building.strip(), unit.strip(), section.strip() or "أخرى",
+                    problem_type.strip(), priority, technician.strip(),
+                    description.strip(), media, status, source,
+                    secrets.token_hex(8), fmt(now),
+                    fmt(now) if status == "done" and source == "manual" else None,
+                ),
+            ).fetchone()
+            oid = ret["id"] if isinstance(ret, dict) else ret[0]
+        else:
+            cur = c.execute(
+                """
+                INSERT INTO work_orders
+                    (reporter_name, contact, reporter_email, location, building, unit, section,
+                     problem_type, priority, technician, description, media,
+                     status, source, token, created_at, completed_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                """,
+                (
+                    reporter_name.strip(), contact.strip(),
+                    (reporter_email or "").strip(), location.strip(),
+                    building.strip(), unit.strip(), section.strip() or "أخرى",
+                    problem_type.strip(), priority, technician.strip(),
+                    description.strip(), media, status, source,
+                    secrets.token_hex(8), fmt(now),
+                    fmt(now) if status == "done" and source == "manual" else None,
+                ),
+            )
+            oid = cur.lastrowid
         order_no = f"WO-{now:%Y%m}-{oid:04d}"
         reference_id = f"R{now:%Y%m%d}-{secrets.token_hex(3).upper()}"
         c.execute(
