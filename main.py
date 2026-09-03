@@ -1147,48 +1147,60 @@ def _send_email_to(to: str, subject: str, body: str) -> bool:
     msg["From"] = _env("SMTP_USER")
     msg["To"] = to
     msg.attach(MIMEText(body, "plain", "utf-8"))
-    import socket
+    import socket, time
     host = _env("SMTP_HOST") or "smtp.gmail.com"
     user = _env("SMTP_USER")
     pwd = _env("SMTP_PASSWORD")
-    # محاولة 1: SSL على البورت 465 (يعمل بشكل أفضل على Render)
-    try:
-        print(f"[EMAIL] Trying SMTP_SSL {host}:465 ...")
-        server = smtplib.SMTP_SSL(host, 465, timeout=20)
-        server.login(user, pwd)
-        server.sendmail(user, [to], msg.as_string())
-        server.quit()
-        print(f"[EMAIL] Sent successfully via SSL 465")
-        return True
-    except Exception as e1:
-        print(f"[EMAIL] SSL 465 failed: {e1}")
-    # محاولة 2: TLS على البورت 587
-    try:
-        print(f"[EMAIL] Trying SMTP {host}:587 ...")
-        server = smtplib.SMTP(host, 587, timeout=20)
-        server.starttls()
-        server.login(user, pwd)
-        server.sendmail(user, [to], msg.as_string())
-        server.quit()
-        print(f"[EMAIL] Sent successfully via TLS 587")
-        return True
-    except Exception as e2:
-        print(f"[EMAIL] TLS 587 failed: {e2}")
-    # محاولة 3: DNS يدوياً IPv4
-    try:
-        print(f"[EMAIL] Trying manual IPv4 lookup ...")
-        addrs = socket.getaddrinfo(host, 587, socket.AF_INET, socket.SOCK_STREAM)
-        ip = addrs[0][4][0]
-        print(f"[EMAIL] Resolved {host} -> {ip}")
-        server = smtplib.SMTP(ip, 587, timeout=20)
-        server.starttls()
-        server.login(user, pwd)
-        server.sendmail(user, [to], msg.as_string())
-        server.quit()
-        print(f"[EMAIL] Sent successfully via IPv4 {ip}")
-        return True
-    except Exception as e3:
-        print(f"[EMAIL] IPv4 failed: {e3}")
+
+    def is_network_error(e) -> bool:
+        txt = str(e)
+        return ("Network is unreachable" in txt or "timed out" in txt
+                or "timed_out" in txt or "No route" in txt
+                or "connection refused" in txt.lower() or "econn" in txt.lower())
+
+    attempts = 3
+    for attempt in range(1, attempts + 1):
+        if attempt > 1:
+            print(f"[EMAIL] Retry {attempt}/{attempts} after {attempt * 5}s (network issue)")
+            time.sleep(attempt * 5)
+        # محاولة 1: SSL على البورت 465 (يعمل بشكل أفضل على Render)
+        try:
+            print(f"[EMAIL] Trying SMTP_SSL {host}:465 ...")
+            server = smtplib.SMTP_SSL(host, 465, timeout=25)
+            server.login(user, pwd)
+            server.sendmail(user, [to], msg.as_string())
+            server.quit()
+            print(f"[EMAIL] Sent successfully via SSL 465")
+            return True
+        except Exception as e1:
+            print(f"[EMAIL] SSL 465 failed: {e1}")
+        # محاولة 2: TLS على البورت 587
+        try:
+            print(f"[EMAIL] Trying SMTP {host}:587 ...")
+            server = smtplib.SMTP(host, 587, timeout=25)
+            server.starttls()
+            server.login(user, pwd)
+            server.sendmail(user, [to], msg.as_string())
+            server.quit()
+            print(f"[EMAIL] Sent successfully via TLS 587")
+            return True
+        except Exception as e2:
+            print(f"[EMAIL] TLS 587 failed: {e2}")
+        # محاولة 3: DNS يدوياً IPv4
+        try:
+            print(f"[EMAIL] Trying manual IPv4 lookup ...")
+            addrs = socket.getaddrinfo(host, 587, socket.AF_INET, socket.SOCK_STREAM)
+            ip = addrs[0][4][0]
+            print(f"[EMAIL] Resolved {host} -> {ip}")
+            server = smtplib.SMTP(ip, 587, timeout=25)
+            server.starttls()
+            server.login(user, pwd)
+            server.sendmail(user, [to], msg.as_string())
+            server.quit()
+            print(f"[EMAIL] Sent successfully via IPv4 {ip}")
+            return True
+        except Exception as e3:
+            print(f"[EMAIL] IPv4 failed: {e3}")
     return False
 
 
