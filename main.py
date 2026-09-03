@@ -1070,6 +1070,9 @@ def notify_new_request(order_no: str, section: str, location: str,
 
 def _notify_email(order_no, section, location, reporter_name, contact, description):
     if not (_env("SMTP_USER") and _env("SMTP_PASSWORD") and _env("NOTIFY_TO")):
+        print(f"[EMAIL NOTIFY] skipped (missing SMTP_USER/SMTP_PASSWORD/NOTIFY_TO) "
+              f"user={bool(_env('SMTP_USER'))} pwd={bool(_env('SMTP_PASSWORD'))} "
+              f"notify={bool(_env('NOTIFY_TO'))}")
         return
     to = _env("NOTIFY_TO")
     subject = f"[بلاغ صيانة جديد] {order_no} - {section}"
@@ -1095,8 +1098,9 @@ def _notify_email(order_no, section, location, reporter_name, contact, descripti
         server.login(_env("SMTP_USER"), _env("SMTP_PASSWORD"))
         server.sendmail(_env("SMTP_USER"), [to], msg.as_string())
         server.quit()
-    except Exception:
-        pass
+        print(f"[EMAIL NOTIFY] sent OK to {to} for {order_no}")
+    except Exception as e:
+        print(f"[EMAIL NOTIFY] FAILED for {order_no}: {e}")
 
 
 def _notify_whatsapp(order_no, section, location, reporter_name, contact, description):
@@ -1206,8 +1210,8 @@ def _send_rating_email(order_no, reporter_name, reporter_email, description):
         f"شكراً لكم,\n"
         f"فريق الصيانة"
     )
-    _send_email_to(reporter_email or _env("NOTIFY_TO"), subject, body)
-    print(f"[EMAIL] Rating email sent to: {reporter_email or _env('NOTIFY_TO')} for order {order_no}")
+    ok = _send_email_to(reporter_email or _env("NOTIFY_TO"), subject, body)
+    print(f"[EMAIL RATE] result={ok} to={reporter_email or _env('NOTIFY_TO')} for order {order_no}")
 
 
 
