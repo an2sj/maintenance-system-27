@@ -1068,34 +1068,45 @@ def notify_new_request(order_no: str, section: str, location: str,
     _notify_whatsapp(order_no, section, location, reporter_name, contact, description)
 
 
-def _send_via_resend(to: str, subject: str, body: str) -> bool:
-    """إرسال بريد عبر Resend REST API (HTTPS). تُعيد True عند النجاح."""
-    key = _env("RESEND_API_KEY")
-    if not (key and to):
-        print(f"[EMAIL RESEND] skipped: key={bool(key)} to={to}")
+def _send_emailjs(to: str, subject: str, body: str) -> bool:
+    """إرسال بريد عبر EmailJS REST API (HTTPS) — لا يتطلب domain."""
+    pub = _env("EMAILJS_PUBLIC_KEY")
+    svc = _env("EMAILJS_SERVICE_ID")
+    tpl = _env("EMAILJS_TEMPLATE_ID")
+    if not (pub and svc and tpl and to):
+        print(f"[EMAIL EMAILJS] skipped: key={bool(pub)} svc={bool(svc)} tpl={bool(tpl)} to={to}")
         return False
-    frm = _env("RESEND_FROM") or "maintenance@resend.dev"
-    payload = {"from": frm, "to": [to], "subject": subject, "text": body}
+    payload = {
+        "service_id": svc,
+        "template_id": tpl,
+        "user_id": pub,
+        "template_params": {
+            "to_email": to,
+            "subject": subject,
+            "message": body,
+            "name": "النظام",
+            "email": "",
+        },
+    }
     req = urllib.request.Request(
-        "https://api.resend.com/emails",
+        "https://api.emailjs.com/api/v1.0/email/send",
         data=json.dumps(payload).encode("utf-8"),
-        headers={"Authorization": f"Bearer {key}",
-                 "Content-Type": "application/json"},
+        headers={"Content-Type": "application/json"},
         method="POST",
     )
     try:
         with urllib.request.urlopen(req, timeout=25) as resp:
             resp.read()
-        print(f"[EMAIL RESEND] sent OK to {to}: {subject}")
+        print(f"[EMAIL EMAILJS] sent OK to {to}: {subject}")
         return True
     except Exception as e:
-        print(f"[EMAIL RESEND] FAILED to={to}: {e}")
+        print(f"[EMAIL EMAILJS] FAILED to={to}: {e}")
         return False
 
 
 def _notify_email(order_no, section, location, reporter_name, contact, description):
-    if not _env("RESEND_API_KEY"):
-        print("[EMAIL NOTIFY] skipped (missing RESEND_API_KEY)")
+    if not _env("EMAILJS_SERVICE_ID"):
+        print("[EMAIL NOTIFY] skipped (missing EMAILJS_SERVICE_ID)")
         return
     to = _env("NOTIFY_TO")
     if not to:
@@ -1110,7 +1121,7 @@ def _notify_email(order_no, section, location, reporter_name, contact, descripti
         f"المُبلّغ: {reporter_name} ({contact})\n\n"
         f"الوصف:\n{description}\n"
     )
-    _send_via_resend(to, subject, body)
+    _send_emailjs(to, subject, body)
 
 
 def _notify_whatsapp(order_no, section, location, reporter_name, contact, description):
@@ -1146,8 +1157,8 @@ def _notify_whatsapp(order_no, section, location, reporter_name, contact, descri
 
 
 def _send_email_to(to: str, subject: str, body: str) -> bool:
-    """إرسال بريد عبر Resend REST API (HTTPS). تُعيد True عند النجاح."""
-    return _send_via_resend(to, subject, body)
+    """إرسال بريد عبر EmailJS REST API (HTTPS). تُعيد True عند النجاح."""
+    return _send_emailjs(to, subject, body)
 
 
 def _send_rating_email(order_no, reporter_name, reporter_email, description):
