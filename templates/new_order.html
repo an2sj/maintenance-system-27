@@ -18,8 +18,9 @@
       <input type="tel" name="contact" dir="ltr" inputmode="tel" pattern="[0-9+\s\-]{7,15}" placeholder="05xxxxxxxx">
     </div>
     <div class="field">
-      <label>{{ 'البريد الإلكتروني للتواصل' if LANG == 'ar' else 'Contact email' }}</label>
-      <input type="email" name="reporter_email" dir="ltr" inputmode="email" placeholder="{{ 'example@mail.com' if LANG == 'ar' else 'example@mail.com' }}">
+      <label>{{ 'اسم مستخدم تليجرام (اختياري)' if LANG == 'ar' else 'Telegram username (optional)' }}</label>
+      <input type="text" name="reporter_telegram" dir="ltr" autocomplete="off" placeholder="@username" pattern="@[A-Za-z0-9_]{4,}">
+      <div class="dyn-hint">{{ 'اكتب معرفك في تليجرام (@username) ليتواصل معك قسم الصيانة ويصلك إشعار الإنجاز والتقييم.' if LANG == 'ar' else 'Write your Telegram handle so maintenance can contact you.' }}</div>
     </div>
 
     <div class="field wide">

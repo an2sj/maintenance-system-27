@@ -24,9 +24,9 @@
       <input type="tel" name="contact" dir="ltr" inputmode="tel" value="{{ o.contact }}">
     </div>
     <div class="field">
-      <label>{{ 'البريد الإلكتروني' if LANG == 'ar' else 'Email' }}</label>
-      <input type="email" name="reporter_email" dir="ltr" inputmode="email" value="{{ o.reporter_email }}" placeholder="example@mail.com">
-      <div class="dyn-hint">{{ 'لإرسال رسالة تقييم الخدمة بعد الإنجاز.' if LANG == 'ar' else 'For sending service rating after completion.' }}</div>
+      <label>{{ 'اسم مستخدم تليجرام' if LANG == 'ar' else 'Telegram username' }}</label>
+      <input type="text" name="reporter_telegram" dir="ltr" autocomplete="off" value="{{ o.reporter_email }}" placeholder="@username" pattern="@[A-Za-z0-9_]{4,}">
+      <div class="dyn-hint">{{ 'ليصله إشعار الإنجاز وتقييم الخدمة من قسم الصيانة.' if LANG == 'ar' else 'Used to send completion & rating notices.' }}</div>
     </div>
 
     <div class="field wide">

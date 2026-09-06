@@ -48,9 +48,9 @@
         <input type="tel" name="contact" dir="ltr" inputmode="tel" pattern="[0-9+\s\-]{7,15}" placeholder="05xxxxxxxx" autocomplete="tel">
       </div>
       <div class="field">
-        <label>{{ 'البريد الإلكتروني للتواصل' if LANG == 'ar' else 'Contact email' }}</label>
-        <input type="email" name="reporter_email" dir="ltr" inputmode="email" placeholder="{{ 'example@mail.com' if LANG == 'ar' else 'example@mail.com' }}" autocomplete="email">
-        <div class="dyn-hint">{{ 'أدخله لنرسل لك حالة بلاغك وتقييم الخدمة بعد الإنجاز.' if LANG == 'ar' else 'We will email you the status and a service rating after completion.' }}</div>
+        <label>{{ 'اسم مستخدم تليجرام (اختياري)' if LANG == 'ar' else 'Telegram username (optional)' }}</label>
+        <input type="text" name="reporter_telegram" dir="ltr" autocomplete="off" placeholder="@username" pattern="@[A-Za-z0-9_]{4,}">
+        <div class="dyn-hint">{{ 'اكتب معرفك في تليجرام (بصيغة @username) ليتواصل معك قسم الصيانة، ويصلك إشعار إنجاز طلبك ورسالة تقييم الخدمة.' if LANG == 'ar' else 'Write your Telegram handle (@username) so maintenance can contact you and you get completion & rating notices.' }}</div>
       </div>
 
       <div class="field wide">

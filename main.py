@@ -1098,7 +1098,7 @@ def _tg_notify_new(order_no, section, location, reporter_name, contact, descript
 
 
 def _tg_notify_done(order_no, reporter_name, reporter_contact, description):
-    """إشعار لطالب الصيانة عند إنجاز العمل + رسالة تقييم."""
+    """إشعار لطالب الصيانة عند إنجاز العمل + رسالة تقييم (عبر معرّف تليجرام @username)."""
     msg = (
         f"✅ تم إنجاز طلب الصيانة الخاص بك\n\n"
         f"رقم الأمر: {order_no}\n\n"
@@ -1106,10 +1106,13 @@ def _tg_notify_done(order_no, reporter_name, reporter_contact, description):
         f"نرجو تقييم الخدمة من 1 إلى 5 (1=ضعيف، 5=ممتاز).\n"
         f"شكراً لثقتك."
     )
-    # أولاً للأدمن (سجل الحالة) ثم للطالب إن توفر رقم
+    # إشعار للأدمن (سجل الحالة) — ثم للطالب إن وضع معرّف تليجرام صحيحاً
     _send_telegram(_env("CHAT_ID"), msg)
-    if reporter_contact:
-        _send_telegram(reporter_contact, msg)
+    c = (reporter_contact or "").strip()
+    if c.startswith("@") and " " not in c:
+        _send_telegram(c, msg)
+    elif c:
+        print(f"[TG] skip reporter (ليس معرف تليجرام): {c}")
 
 
 def notify_new_request(order_no: str, section: str, location: str,
@@ -1213,28 +1216,9 @@ def _send_email_to(to: str, subject: str, body: str) -> bool:
     return _send_emailjs(to, subject, body)
 
 
-def _send_rating_email(order_no, reporter_name, reporter_email, description):
-    """رسالة تقييم الخدمة تُرسل لبريد المبلّغ بعد إنجاز العمل."""
-    subject = f"تقييم الخدمة — أمر العمل {order_no} 🛒"
-    body = (
-        f"السلام عليكم {reporter_name}،\n\n"
-        f"نشكرك على تواصلك معنا بخصوص طلب الصيانة رقم {order_no}.\n"
-        f"يسرنا أن نعلمك أن العمل قد تم إنجازه بنجاح ✅.\n\n"
-        f"نأمل منك تقييم جودة الخدمة المقدمة لنا من 1 إلى 5، "
-        f"حيث 1 = ضعيف و 5 = ممتاز.\n\n"
-        f"🔹 ممتاز (5)   🔹 جيد (4)   🔹 متوسط (3)   🔹 ضعيف (2)   🔹 سيئ (1)\n\n"
-        f"يمكنك الرد على هذه الرسالة بدرجة التقييم، أو عبر الهاتف.\n"
-        f"نقدّر ملاحظاتك لتحسين الخدمة.\n\n"
-        f"تفاصيل الطلب:\n"
-        f"رقم الأمر: {order_no}\n"
-        f"الوصف: {description[:150]}\n\n"
-        f"شكراً لكم,\n"
-        f"فريق الصيانة"
-    )
-    # عند الإنجاز: إشعار Telegram للطالب + رسالة تقييم عبر البريد
-    _tg_notify_done(order_no, reporter_name, reporter_email, description[:150])
-    ok = _send_email_to(reporter_email or _env("NOTIFY_TO"), subject, body)
-    print(f"[EMAIL RATE] result={ok} to={reporter_email or _env('NOTIFY_TO')} for order {order_no}")
+def _send_rating_email(order_no, reporter_name, reporter_telegram, description):
+    """إشعار إنجاز + رسالة تقييم تُرسل عبر تليجرام لمعرّف الطالب (@username)."""
+    _tg_notify_done(order_no, reporter_name, reporter_telegram, description[:150])
 
 
 
@@ -1379,7 +1363,7 @@ def new_order_page(request: Request):
 def create_order(
     reporter_name: str = Form(...),
     contact: str = Form(""),
-    reporter_email: str = Form(""),
+    reporter_telegram: str = Form(""),
     location: str = Form(""),
     building: str = Form(""),
     unit: str = Form(""),
@@ -1401,7 +1385,7 @@ def create_order(
         technician, description,
         problem_type=problem_type, building=building, unit=unit,
         media=",".join(saved), status="approved", source="manual",
-        reporter_email=reporter_email,
+        reporter_email=reporter_telegram,
     )
     notify_new_request(_order_no, section, location, reporter_name, contact, description)
     return RedirectResponse(f"/orders/{oid}?created=1", status_code=303)
@@ -1469,7 +1453,7 @@ def update_order(order_id: int, status: str = Form(...), technician: str = Form(
         _send_rating_email(
             order_no=existing["order_no"],
             reporter_name=existing["reporter_name"],
-            reporter_email=existing["reporter_email"],
+            reporter_telegram=existing["reporter_email"],
             description=existing["description"],
         )
     return RedirectResponse(f"/orders/{order_id}?updated=1", status_code=303)
@@ -1480,7 +1464,7 @@ def order_edit_submit(
     order_id: int,
     reporter_name: str = Form(...),
     contact: str = Form(""),
-    reporter_email: str = Form(""),
+    reporter_telegram: str = Form(""),
     location: str = Form(""),
     building: str = Form(""),
     unit: str = Form(""),
@@ -1503,7 +1487,7 @@ def order_edit_submit(
             WHERE id=?
             """,
             (
-                reporter_name.strip(), contact.strip(), reporter_email.strip(),
+                reporter_name.strip(), contact.strip(), reporter_telegram.strip(),
                 location.strip(), building.strip(), unit.strip(), section.strip(),
                 problem_type.strip(), priority, technician.strip(),
                 description.strip(), order_id,
@@ -1619,7 +1603,7 @@ def public_report_submit(
     request: Request,
     reporter_name: str = Form(...),
     contact: str = Form(""),
-    reporter_email: str = Form(""),
+    reporter_telegram: str = Form(""),
     location: str = Form(""),
     building: str = Form(""),
     unit: str = Form(""),
@@ -1639,7 +1623,7 @@ def public_report_submit(
         "", description,
         problem_type=problem_type, building=building, unit=unit,
         media=",".join(saved), status="pending", source="qr",
-        reporter_email=reporter_email,
+        reporter_email=reporter_telegram,
     )
     # تنبيه فوري (بريد و/أو WhatsApp) — يُتجاهل بصمت إن لم تُضبط المتغيرات
     try:
