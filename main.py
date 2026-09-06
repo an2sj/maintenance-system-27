@@ -1061,11 +1061,63 @@ def _env(key: str) -> str:
     return os.environ.get(key, "").strip()
 
 
+def _send_telegram(chat_id: str, text: str) -> bool:
+    """إرسال رسالة Telegram فورية عبر Bot API (HTTPS). تُعيد True عند النجاح."""
+    token = _env("BOT_TOKEN")
+    if not (token and chat_id):
+        print(f"[TG] skipped: token={bool(token)} chat={bool(chat_id)}")
+        return False
+    payload = {"chat_id": chat_id, "text": text}
+    req = urllib.request.Request(
+        f"https://api.telegram.org/bot{token}/sendMessage",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            resp.read()
+        print(f"[TG] sent OK to {chat_id}")
+        return True
+    except Exception as e:
+        print(f"[TG] FAILED to {chat_id}: {e}")
+        return False
+
+
+def _tg_notify_new(order_no, section, location, reporter_name, contact, description):
+    """إشعار للأدمن فور رفع بلاغ جديد."""
+    text = (
+        f"🔔 بلاغ صيانة جديد\n\n"
+        f"رقم الأمر: {order_no}\n"
+        f"الموقع: {location}\n"
+        f"القسم: {section}\n"
+        f"المُبلّغ: {reporter_name} ({contact})\n\n"
+        f"الوصف:\n{description[:200]}\n"
+    )
+    _send_telegram(_env("CHAT_ID"), text)
+
+
+def _tg_notify_done(order_no, reporter_name, reporter_contact, description):
+    """إشعار لطالب الصيانة عند إنجاز العمل + رسالة تقييم."""
+    msg = (
+        f"✅ تم إنجاز طلب الصيانة الخاص بك\n\n"
+        f"رقم الأمر: {order_no}\n\n"
+        f"{description[:150]}\n\n"
+        f"نرجو تقييم الخدمة من 1 إلى 5 (1=ضعيف، 5=ممتاز).\n"
+        f"شكراً لثقتك."
+    )
+    # أولاً للأدمن (سجل الحالة) ثم للطالب إن توفر رقم
+    _send_telegram(_env("CHAT_ID"), msg)
+    if reporter_contact:
+        _send_telegram(reporter_contact, msg)
+
+
 def notify_new_request(order_no: str, section: str, location: str,
                        reporter_name: str, contact: str, description: str):
-    """إرسال تنبيه فوري (بريد و/أو WhatsApp) عند وصول بلاغ QR جديد."""
+    """إرسال تنبيه فوري (بريد/واتساب/تلغرام) عند وصول بلاغ QR جديد."""
     _notify_email(order_no, section, location, reporter_name, contact, description)
     _notify_whatsapp(order_no, section, location, reporter_name, contact, description)
+    _tg_notify_new(order_no, section, location, reporter_name, contact, description)
 
 
 def _send_emailjs(to: str, subject: str, body: str) -> bool:
@@ -1179,6 +1231,8 @@ def _send_rating_email(order_no, reporter_name, reporter_email, description):
         f"شكراً لكم,\n"
         f"فريق الصيانة"
     )
+    # عند الإنجاز: إشعار Telegram للطالب + رسالة تقييم عبر البريد
+    _tg_notify_done(order_no, reporter_name, reporter_email, description[:150])
     ok = _send_email_to(reporter_email or _env("NOTIFY_TO"), subject, body)
     print(f"[EMAIL RATE] result={ok} to={reporter_email or _env('NOTIFY_TO')} for order {order_no}")
 
@@ -1349,6 +1403,7 @@ def create_order(
         media=",".join(saved), status="approved", source="manual",
         reporter_email=reporter_email,
     )
+    notify_new_request(_order_no, section, location, reporter_name, contact, description)
     return RedirectResponse(f"/orders/{oid}?created=1", status_code=303)
 
 
