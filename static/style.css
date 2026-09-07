@@ -99,7 +99,7 @@ a:hover { text-decoration: underline; }
 }
 
 /* ---------------- Layout ---------------- */
-.wrap { max-width: 1200px; margin: 0 auto; padding: 22px 18px 50px; flex: 1; width: 100%; }
+.wrap { max-width: 100%; margin: 0 auto; padding: 18px 20px 44px; flex: 1; width: 100%; }
 .foot { text-align: center; padding: 20px 12px 26px; color: #7c8a86; font-size: 12.5px; font-weight: 500; }
 
 .page-head { margin: 4px 0 20px; }
@@ -117,7 +117,7 @@ a:hover { text-decoration: underline; }
 }
 .form-card { padding: 22px; margin-bottom: 18px; }
 
-.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 16px; }
 .stat {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   padding: 18px 12px; text-align: center;
@@ -198,7 +198,7 @@ label em { color: #dc2626; font-style: normal; }
   overflow-x: auto; background: #fff; border: 1px solid var(--line);
   border-radius: var(--radius); box-shadow: var(--shadow);
 }
-table.tbl { width: 100%; border-collapse: collapse; min-width: 940px; font-size: 13.5px; }
+table.tbl { width: 100%; border-collapse: collapse; min-width: 0; font-size: 13.5px; text-align: right; }
 table.tbl th {
   background: #eef6f4; color: var(--primary-darker); font-size: 12.5px; font-weight: 700;
   padding: 11px 12px; text-align: right; white-space: nowrap;
