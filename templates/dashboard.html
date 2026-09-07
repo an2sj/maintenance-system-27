@@ -115,11 +115,11 @@ window.__chartData = {{ chart_data | safe }};
         <td class="nowrap">{{ ('بلاغ QR' if o.source == 'qr' else 'لوحة التحكم') if LANG == 'ar' else ('QR' if o.source == 'qr' else 'Dashboard') }}</td>
         <td class="acts">
           <a class="btn btn-ghost btn-sm inline" href="/orders/{{ o.id }}">{{ tr('action_view') }}</a>
-          <a class="btn btn-primary btn-sm inline" href="/orders/{{ o.id }}/edit">{{ tr('action_edit') }}</a>
+          <a class="btn btn-sm inline" href="/orders/{{ o.id }}/edit">{{ tr('action_edit') }}</a>
           {% if o.contact %}<a class="btn btn-wa btn-sm inline" target="_blank" rel="noopener"
              href="{{ WA_LINK(o.contact, o.order_no) }}">💬 {{ tr('btn_wa') }}</a>{% endif %}
-          <a class="btn btn-ghost btn-sm inline" href="/orders/{{ o.id }}/qr.png" title="{{ 'تحميل رمز QR' if LANG == 'ar' else 'Download QR' }}">⬇ QR</a>
-          <a class="btn btn-ghost btn-sm inline" href="/orders/{{ o.id }}/print?autoprint=1">🖨</a>
+          <a class="btn btn-sm inline" href="/orders/{{ o.id }}/qr.png" title="{{ 'تحميل رمز QR' if LANG == 'ar' else 'Download QR' }}">⬇ QR</a>
+          <a class="btn btn-sm inline" href="/orders/{{ o.id }}/print?autoprint=1">🖨</a>
           <form class="inline" method="post" action="/orders/{{ o.id }}/delete"
                 onsubmit="return confirm('{{ 'حذف' if LANG == 'ar' else 'Delete' }} {{ o.order_no }}?')">
             <button class="btn btn-danger btn-sm" type="submit">🗑</button>
@@ -142,11 +142,6 @@ window.__chartData = {{ chart_data | safe }};
   if (!window.Chart) return;
   const d = window.__chartData || {};
   const PAL = ['#0d9488','#f59e0b','#ef4444','#3b82f6','#8b5cf6','#10b981','#f97316','#ec4899','#14b8a6','#64748b'];
-  function cleanLabel(k) {
-    if (k === null || k === undefined) return 'غير محدد';
-    const s = String(k).trim();
-    return (s === '' || s.toLowerCase() === 'undefined' || s.toLowerCase() === 'none') ? 'غير محدد' : s;
-  }
   function doughnut(canvas, obj, title) {
     const el = document.getElementById(canvas);
     if (!el) return;
@@ -155,11 +150,11 @@ window.__chartData = {{ chart_data | safe }};
     if (!keys.length) return;
     new Chart(el, {
       type: 'doughnut',
-      data: { labels: keys.map(cleanLabel), datasets: [{ data: vals,
+      data: { labels: keys, datasets: [{ data: vals,
         backgroundColor: keys.map((_, i) => PAL[i % PAL.length]),
         borderWidth: 2, borderColor: '#fff' }] },
       options: { responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { position: 'bottom', labels: { font: { family: 'Tajawal' } } } } }
+        plugins: { legend: { position: 'bottom', labels: { font: { family: 'Cairo' } } } } }
     });
   }
   function bar(canvas, obj, title) {
@@ -176,7 +171,7 @@ window.__chartData = {{ chart_data | safe }};
         plugins: { legend: { display: false },
           tooltip: { rtl: true } },
         scales: { x: { beginAtZero: true, ticks: { precision: 0 } },
-                  y: { ticks: { font: { family: 'Tajawal' } } } } }
+                  y: { ticks: { font: { family: 'Cairo' } } } } }
     });
   }
   doughnut('chStatus', d.status);
@@ -185,16 +180,15 @@ window.__chartData = {{ chart_data | safe }};
 })();
 </script>
 <style>
-  .charts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 12px 0; }
-  .chart-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.06); display: flex; flex-direction: column; min-width: 0; }
-  .chart-card h3 { margin: 0 0 8px; font-size: 13px; color: #0f172a; text-align: center; }
-  .chart-card .chart-box { position: relative; flex: 1; min-height: 170px; max-height: 170px; overflow: hidden; }
+  .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin: 18px 0; }
+  .chart-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .chart-card h3 { margin: 0 0 12px; font-size: 14px; color: #0f172a; }
+  .chart-card .chart-box { position: relative; width: 100%; height: 220px; max-height: 220px; overflow: hidden; }
   .chart-card .chart-box canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
-  @media (max-width: 900px) { .charts { grid-template-columns: 1fr; } }
-  .notify-card { background: #fff; border: 1px solid #fcd34d; border-left: 5px solid #f59e0b; border-radius: 14px; padding: 10px 14px; margin: 12px 0; box-shadow: 0 2px 8px rgba(245,158,11,.12); }
-  .notify-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; font-weight: 700; color: #92400e; }
-  .notify-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-  .notify-list li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 6px 10px; background: #fffbeb; border-radius: 10px; }
+  .notify-card { background: #fff; border: 1px solid #fcd34d; border-left: 5px solid #f59e0b; border-radius: 14px; padding: 14px 16px; margin: 18px 0; box-shadow: 0 2px 8px rgba(245,158,11,.12); }
+  .notify-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; font-weight: 700; color: #92400e; }
+  .notify-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .notify-list li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 10px; background: #fffbeb; border-radius: 10px; }
   .notify-list li .muted { color: #64748b; flex: 1; min-width: 120px; }
 </style>
 {% endblock %}

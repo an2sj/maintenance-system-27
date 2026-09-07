@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d9488">
   <title>{{ tr('title_report') }} | {{ HOSPITAL_NAME }}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
   <style>
     .pub-lang { text-align: center; margin-bottom: 8px; }
@@ -15,9 +15,6 @@
 <body>
 
 <main class="pub-wrap">
-  <div class="no-print" style="margin: 6px 0 14px;">
-    <button class="btn btn-ghost btn-sm" type="button" onclick="goBack()">→ {{ 'رجوع' if LANG == 'ar' else 'Back' }}</button>
-  </div>
   <div class="pub-lang no-print">
     <a href="?lang={{ 'ar' if LANG == 'en' else 'en' }}">{{ tr('lang_switch') }}</a>
   </div>
@@ -154,12 +151,6 @@
     else if (val === 'مبنى T5' || val === 'مبنى T6'){ document.getElementById('t56_field').style.display=''; document.getElementById('t56_select').disabled=false; }
     else if (val === 'مبنى T1'){ document.getElementById('t1_field').style.display=''; document.getElementById('t1_input').disabled=false; }
   }
-</script>
-<script>
-function goBack() {
-  if (window.history.length > 1) { window.history.back(); }
-  else { window.location.href = '/'; }
-}
 </script>
 </body>
 </html>
