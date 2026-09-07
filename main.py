@@ -1215,17 +1215,19 @@ def send_whatsapp_message(to_phone: str, message_text: str) -> bool:
 
 
 def _notify_whatsapp(order_no, section, location, reporter_name, contact, description):
-    if not (_env("WHATSAPP_TOKEN") and _whatsapp_phone_id() and _env("WHATSAPP_TO")):
+    # إرسال مباشر لرقم الطالب المدخل في النموذج (contact) — دون تقييد بقائمة
+    phone = (contact or "").strip()
+    if not phone:
         return
     body = (
-        f"بلاغ صيانة جديد 🛠️\n\n"
+        f"✅ تم استلام بلاغ الصيانة الخاص بك\n\n"
         f"رقم الأمر: {order_no}\n"
         f"الموقع: {location}\n"
         f"القسم: {section}\n"
-        f"المُبلّغ: {reporter_name} ({contact})\n"
-        f"الوصف: {description[:150]}\n"
+        f"الوصف: {description[:150]}\n\n"
+        f"سيقوم قسم الصيانة بمتابعة طلبك. شكراً لتواصلك."
     )
-    send_whatsapp_message(_env("WHATSAPP_TO"), body)
+    send_whatsapp_message(phone, body)
 
 
 def _send_email_to(to: str, subject: str, body: str) -> bool:
