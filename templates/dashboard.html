@@ -140,6 +140,11 @@ window.__chartData = {{ chart_data | safe }};
   if (!window.Chart) return;
   const d = window.__chartData || {};
   const PAL = ['#0d9488','#f59e0b','#ef4444','#3b82f6','#8b5cf6','#10b981','#f97316','#ec4899','#14b8a6','#64748b'];
+  function cleanLabel(k) {
+    if (k === null || k === undefined) return 'غير محدد';
+    const s = String(k).trim();
+    return (s === '' || s.toLowerCase() === 'undefined' || s.toLowerCase() === 'none') ? 'غير محدد' : s;
+  }
   function doughnut(canvas, obj, title) {
     const el = document.getElementById(canvas);
     if (!el) return;
@@ -148,11 +153,11 @@ window.__chartData = {{ chart_data | safe }};
     if (!keys.length) return;
     new Chart(el, {
       type: 'doughnut',
-      data: { labels: keys, datasets: [{ data: vals,
+      data: { labels: keys.map(cleanLabel), datasets: [{ data: vals,
         backgroundColor: keys.map((_, i) => PAL[i % PAL.length]),
         borderWidth: 2, borderColor: '#fff' }] },
       options: { responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { position: 'bottom', labels: { font: { family: 'Cairo' } } } } }
+        plugins: { legend: { position: 'bottom', labels: { font: { family: 'Tajawal' } } } } }
     });
   }
   function bar(canvas, obj, title) {
@@ -169,7 +174,7 @@ window.__chartData = {{ chart_data | safe }};
         plugins: { legend: { display: false },
           tooltip: { rtl: true } },
         scales: { x: { beginAtZero: true, ticks: { precision: 0 } },
-                  y: { ticks: { font: { family: 'Cairo' } } } } }
+                  y: { ticks: { font: { family: 'Tajawal' } } } } }
     });
   }
   doughnut('chStatus', d.status);

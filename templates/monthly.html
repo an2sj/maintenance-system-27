@@ -2,8 +2,13 @@
 {% block title %}{{ tr('nav_monthly') }}{% endblock %}
 {% block content %}
 
-<div class="toolbar">
-  <form method="get" action="/monthly" class="toolbar-form">
+<div class="page-head" style="text-align:center;">
+  <h1>{{ tr('nav_monthly') }}</h1>
+  <div class="sub">{{ 'التقرير الشهري لأوامر العمل — اختر الشهر لعرض الرسوم والمطبوع' if LANG == 'ar' else 'Monthly work orders report — pick a month' }}</div>
+</div>
+
+<div class="toolbar" style="justify-content:center; flex-wrap:wrap;">
+  <form method="get" action="/monthly" class="toolbar-form" style="flex:0 1 auto; justify-content:center;">
     <select name="year">
       {% for y in years %}<option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>{% endfor %}
     </select>
@@ -16,7 +21,7 @@
   </form>
   <a class="btn btn-ghost btn-sm" href="/monthly/pdf?year={{ year }}&month={{ month }}">{{ 'PDF' if LANG == 'ar' else 'PDF' }} ⬇</a>
   <a class="btn btn-ghost btn-sm" href="/monthly/excel?year={{ year }}&month={{ month }}">{{ 'Excel' if LANG == 'ar' else 'Excel' }} ⬇</a>
-  <button class="btn btn-primary push" onclick="window.print()">🖨 {{ tr('mth_print') }}</button>
+  <button class="btn btn-primary btn-sm" onclick="window.print()">🖨 {{ tr('mth_print') }}</button>
 </div>
 
 <div class="charts no-print">
@@ -139,6 +144,11 @@
   if (!window.Chart) return;
   const d = window.__chartData || {};
   const PAL = ['#0d9488','#f59e0b','#ef4444','#3b82f6','#8b5cf6','#10b981','#f97316','#ec4899','#14b8a6','#64748b'];
+  function cleanLabel(k) {
+    if (k === null || k === undefined) return 'غير محدد';
+    const s = String(k).trim();
+    return (s === '' || s.toLowerCase() === 'undefined' || s.toLowerCase() === 'none') ? 'غير محدد' : s;
+  }
   function chart(canvas, obj, type) {
     const el = document.getElementById(canvas);
     if (!el) return;
@@ -147,15 +157,15 @@
     if (!keys.length) return;
     new Chart(el, {
       type: type,
-      data: { labels: keys, datasets: [{ data: vals,
+      data: { labels: keys.map(cleanLabel), datasets: [{ data: vals,
         backgroundColor: keys.map((_, i) => PAL[i % PAL.length]),
         borderWidth: 2, borderColor: '#fff' }] },
       options: { responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { position: 'bottom', labels: { font: { family: 'Cairo' } } } } }
+        plugins: { legend: { position: 'bottom', labels: { font: { family: 'Tajawal' } } } } }
     });
   }
   chart('chStatus', d.status, 'doughnut');
-  chart('chSection', d.section, 'bar');
+  chart('chSection', d.section, 'doughnut');
   chart('chPriority', d.priority, 'doughnut');
 })();
 </script>
