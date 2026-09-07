@@ -685,6 +685,18 @@ def to_wa_phone(contact):
     return "966" + digits
 
 
+def wa_link(contact, order_no):
+    """رابط wa.me مع رسالة مسبقة ثنائية تتضمن رقم البلاغ."""
+    digits = to_wa_phone(contact)
+    if not digits:
+        return ""
+    msg = (
+        f"مرحباً، معك قسم الصيانة والتشغيل بخصوص طلب الصيانة رقم: {order_no} 🛠️\n\n"
+        f"Hello, Maintenance Dept. here regarding your order: {order_no} 🛠️"
+    )
+    return f"https://wa.me/{digits}?text={quote(msg)}"
+
+
 def context(request: Request, **extra) -> dict:
     with db() as c:
         pending_count = c.execute(
@@ -713,6 +725,7 @@ def context(request: Request, **extra) -> dict:
         "T_MAINT": lambda v: tr_value(lang, v, "maintenance"),
         "T_BUILD": lambda v: tr_value(lang, v, "building"),
         "WA": to_wa_phone,
+        "WA_LINK": wa_link,
     }
     data.update(extra)
     return data
@@ -1236,12 +1249,14 @@ def _notify_whatsapp(order_no, section, location, reporter_name, contact, descri
     if not phone:
         return
     body = (
-        f"✅ تم استلام بلاغ الصيانة الخاص بك\n\n"
-        f"رقم الأمر: {order_no}\n"
-        f"الموقع: {location}\n"
-        f"القسم: {section}\n"
-        f"الوصف: {description[:150]}\n\n"
-        f"سيقوم قسم الصيانة بمتابعة طلبك. شكراً لتواصلك."
+        f"أهلاً بك، تم استلام طلب الصيانة بنجاح 🛠️\n"
+        f"📋 رقم البلاغ: {order_no}\n"
+        f"🏢 قسم الصيانة والتشغيل - المدينة السكنية\n"
+        f"طلبك قيد المراجعة وسيتم إسناده للفني المختص قريباً.\n\n"
+        f"Welcome, your maintenance request has been received 🛠️\n"
+        f"📋 Order Ref: {order_no}\n"
+        f"🏢 Residential City - Maintenance Dept.\n"
+        f"Your request is under review and will be assigned shortly."
     )
     send_whatsapp_message(phone, body)
 
@@ -1251,17 +1266,19 @@ def _send_email_to(to: str, subject: str, body: str) -> bool:
     return _send_emailjs(to, subject, body)
 
 
-def _send_rating_email(order_no, reporter_name, reporter_telegram, reporter_phone, description):
+def _send_rating_email(order_no, reporter_name, reporter_telegram, reporter_phone, description, rating_url=""):
     """إشعار إنجاز + رسالة تقييم: تليجرام للمعرّف، وواتساب لرقم الهاتف."""
     _tg_notify_done(order_no, reporter_name, reporter_telegram, description[:150])
     # واتساب لطالب الخدمة عبر رقمه الهاتفي إن توفر
     phone = (reporter_phone or "").strip()
     if phone:
         wa = (
-            f"✅ تم إنجاز طلب الصيانة الخاص بك\n\n"
-            f"رقم الأمر: {order_no}\n\n"
-            f"نرجو تقييم جودة الخدمة من 1 إلى 5 (1=ضعيف، 5=ممتاز).\n"
-            f"شكراً لتواصلك مع قسم الصيانة."
+            f"تم إنجاز طلب الصيانة بنجاح ✅\n"
+            f"📋 رقم البلاغ: {order_no}\n"
+            f"يرجى تقييم الخدمة عبر الرابط: {rating_url}\n\n"
+            f"Your maintenance request has been completed ✅\n"
+            f"📋 Order Ref: {order_no}\n"
+            f"Please rate our service: {rating_url}"
         )
         send_whatsapp_message(phone, wa)
 
@@ -1462,7 +1479,7 @@ def order_edit_page(order_id: int, request: Request):
 
 
 @app.post("/orders/{order_id}/update")
-def update_order(order_id: int, status: str = Form(...), technician: str = Form(""),
+def update_order(order_id: int, request: Request, status: str = Form(...), technician: str = Form(""),
                  notes: str = Form("")):
     if status not in STATUS_META:
         raise HTTPException(status_code=400, detail="invalid status")
@@ -1495,12 +1512,14 @@ def update_order(order_id: int, status: str = Form(...), technician: str = Form(
         )
     # عند إنجاز العمل: إرسال رسالة تقييم عبر البريد إلى المبلّغ
     if status == "done" and existing["status"] != "done":
+        rating_url = f"{base_url(request)}/track/{existing['token']}"
         _send_rating_email(
             order_no=existing["order_no"],
             reporter_name=existing["reporter_name"],
             reporter_telegram=existing["reporter_email"],
             reporter_phone=existing["contact"],
             description=existing["description"],
+            rating_url=rating_url,
         )
     return RedirectResponse(f"/orders/{order_id}?updated=1", status_code=303)
 
@@ -1590,11 +1609,14 @@ def approve_request(order_id: int):
         phone = (row["contact"] or "").strip()
         if phone:
             body = (
-                f"✅ تم استلام طلب الصيانة الخاص بك وتحويله إلى أمر عمل\n\n"
-                f"رقم الأمر: {row['order_no']}\n"
-                f"الموقع: {row['location']}\n"
-                f"القسم: {row['section']}\n\n"
-                f"سيقوم قسم الصيانة بمعالجة طلبك. شكراً لتواصلك."
+                f"أهلاً بك، تم استلام طلب الصيانة بنجاح 🛠️\n"
+                f"📋 رقم البلاغ: {row['order_no']}\n"
+                f"🏢 قسم الصيانة والتشغيل - المدينة السكنية\n"
+                f"طلبك قيد المراجعة وسيتم إسناده للفني المختص قريباً.\n\n"
+                f"Welcome, your maintenance request has been received 🛠️\n"
+                f"📋 Order Ref: {row['order_no']}\n"
+                f"🏢 Residential City - Maintenance Dept.\n"
+                f"Your request is under review and will be assigned shortly."
             )
             send_whatsapp_message(phone, body)
     return RedirectResponse(f"/orders/{order_id}?approved=1", status_code=303)
