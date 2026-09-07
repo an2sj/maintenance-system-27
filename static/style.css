@@ -24,7 +24,7 @@
 
 html { -webkit-text-size-adjust: 100%; }
 
-body, button, input, select, textarea, table {
+body {
   font-family: 'Tajawal', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
   font-weight: 400;
   -webkit-font-smoothing: antialiased;
@@ -37,6 +37,18 @@ body, button, input, select, textarea, table {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+button, input, select, textarea, table {
+  font-family: 'Tajawal', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  color: var(--ink);
+  font-size: 14.5px;
+  line-height: 1.7;
+  box-sizing: border-box;
 }
 
 a { color: var(--primary-dark); text-decoration: none; }
