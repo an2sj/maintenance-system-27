@@ -306,6 +306,7 @@ I("btn_delete", "حذف الأمر", "Delete Order")
 I("btn_print_header", "🖨 طباعة بالهيدر الرسمي", "🖨 Print with Official Header")
 I("btn_track", "صفحة التتبع", "Tracking Page")
 I("btn_print", "🖨 طباعة", "🖨 Print")
+I("btn_wa", "💬 تواصل واتساب", "💬 WhatsApp")
 
 I("inc_title", "الطلبات الواردة — بانتظار التدقيق", "Incoming Requests — Pending Review")
 I("inc_sub", "البلاغات المرفوعة عبر مسح رمز QR تظهر هنا أولاً ولا تدخل السجل الرسمي إلا بعد اعتمادها", "QR submissions appear here first and enter the official log only after approval")
@@ -670,6 +671,20 @@ FLASH_MESSAGES = {
     "err": ("يرجى تعبئة جميع الحقول الإلزامية.", "يرجى تعبئة جميع الحقول الإلزامية.", "bad"),
 }
 
+def to_wa_phone(contact):
+    """تحويل رقم هاتف لمباشر واتساب دولي (إزالة التشكيلات، 0 الأولى، إضافة 966)."""
+    if not contact:
+        return ""
+    digits = re.sub(r"[^0-9]", "", str(contact))
+    if digits.startswith("00"):
+        digits = digits[2:]
+    if digits.startswith("966"):
+        return digits
+    if digits.startswith("0"):
+        digits = digits[1:]
+    return "966" + digits
+
+
 def context(request: Request, **extra) -> dict:
     with db() as c:
         pending_count = c.execute(
@@ -697,6 +712,7 @@ def context(request: Request, **extra) -> dict:
         "T_PRIO": lambda v: tr_value(lang, v, "priority"),
         "T_MAINT": lambda v: tr_value(lang, v, "maintenance"),
         "T_BUILD": lambda v: tr_value(lang, v, "building"),
+        "WA": to_wa_phone,
     }
     data.update(extra)
     return data
@@ -1561,11 +1577,26 @@ def incoming(request: Request):
 
 @app.post("/incoming/{order_id}/approve")
 def approve_request(order_id: int):
+    row = None
     with db() as c:
-        c.execute(
-            "UPDATE work_orders SET status='approved' WHERE id=? AND status='pending'",
-            (order_id,),
-        )
+        row = c.execute("SELECT * FROM work_orders WHERE id=? AND status='pending'",
+                        (order_id,)).fetchone()
+        if row:
+            c.execute(
+                "UPDATE work_orders SET status='approved' WHERE id=? AND status='pending'",
+                (order_id,),
+            )
+    if row:
+        phone = (row["contact"] or "").strip()
+        if phone:
+            body = (
+                f"✅ تم استلام طلب الصيانة الخاص بك وتحويله إلى أمر عمل\n\n"
+                f"رقم الأمر: {row['order_no']}\n"
+                f"الموقع: {row['location']}\n"
+                f"القسم: {row['section']}\n\n"
+                f"سيقوم قسم الصيانة بمعالجة طلبك. شكراً لتواصلك."
+            )
+            send_whatsapp_message(phone, body)
     return RedirectResponse(f"/orders/{order_id}?approved=1", status_code=303)
 
 
