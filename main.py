@@ -1179,8 +1179,43 @@ def _notify_email(order_no, section, location, reporter_name, contact, descripti
     _send_emailjs(to, subject, body)
 
 
+def _whatsapp_phone_id() -> str:
+    return _env("WHATSAPP_PHONE_NUMBER_ID") or _env("WHATSAPP_PHONE_ID")
+
+
+def send_whatsapp_message(to_phone: str, message_text: str) -> bool:
+    """إرسال رسالة WhatsApp عبر Meta Graph API. تُعيد True عند النجاح."""
+    token = _env("WHATSAPP_TOKEN")
+    pid = _whatsapp_phone_id()
+    if not (token and pid and to_phone):
+        print(f"[WA] skipped: token={bool(token)} pid={bool(pid)} to={to_phone}")
+        return False
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": to_phone,
+        "type": "text",
+        "text": {"body": message_text},
+    }
+    url = f"https://graph.facebook.com/v19.0/{pid}/messages"
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Authorization": f"Bearer {token}",
+                 "Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            resp.read()
+        print(f"[WA] sent OK to {to_phone}")
+        return True
+    except Exception as e:
+        print(f"[WA] FAILED to {to_phone}: {e}")
+        return False
+
+
 def _notify_whatsapp(order_no, section, location, reporter_name, contact, description):
-    if not (_env("WHATSAPP_TOKEN") and _env("WHATSAPP_PHONE_ID") and _env("WHATSAPP_TO")):
+    if not (_env("WHATSAPP_TOKEN") and _whatsapp_phone_id() and _env("WHATSAPP_TO")):
         return
     body = (
         f"بلاغ صيانة جديد 🛠️\n\n"
@@ -1190,25 +1225,7 @@ def _notify_whatsapp(order_no, section, location, reporter_name, contact, descri
         f"المُبلّغ: {reporter_name} ({contact})\n"
         f"الوصف: {description[:150]}\n"
     )
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": _env("WHATSAPP_TO"),
-        "type": "text",
-        "text": {"body": body},
-    }
-    url = f"https://graph.facebook.com/v19.0/{_env('WHATSAPP_PHONE_ID')}/messages"
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Authorization": f"Bearer {_env('WHATSAPP_TOKEN')}",
-                 "Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=20) as resp:
-            resp.read()
-    except Exception:
-        pass
+    send_whatsapp_message(_env("WHATSAPP_TO"), body)
 
 
 def _send_email_to(to: str, subject: str, body: str) -> bool:
@@ -1216,9 +1233,19 @@ def _send_email_to(to: str, subject: str, body: str) -> bool:
     return _send_emailjs(to, subject, body)
 
 
-def _send_rating_email(order_no, reporter_name, reporter_telegram, description):
-    """إشعار إنجاز + رسالة تقييم تُرسل عبر تليجرام لمعرّف الطالب (@username)."""
+def _send_rating_email(order_no, reporter_name, reporter_telegram, reporter_phone, description):
+    """إشعار إنجاز + رسالة تقييم: تليجرام للمعرّف، وواتساب لرقم الهاتف."""
     _tg_notify_done(order_no, reporter_name, reporter_telegram, description[:150])
+    # واتساب لطالب الخدمة عبر رقمه الهاتفي إن توفر
+    phone = (reporter_phone or "").strip()
+    if phone:
+        wa = (
+            f"✅ تم إنجاز طلب الصيانة الخاص بك\n\n"
+            f"رقم الأمر: {order_no}\n\n"
+            f"نرجو تقييم جودة الخدمة من 1 إلى 5 (1=ضعيف، 5=ممتاز).\n"
+            f"شكراً لتواصلك مع قسم الصيانة."
+        )
+        send_whatsapp_message(phone, wa)
 
 
 
@@ -1454,6 +1481,7 @@ def update_order(order_id: int, status: str = Form(...), technician: str = Form(
             order_no=existing["order_no"],
             reporter_name=existing["reporter_name"],
             reporter_telegram=existing["reporter_email"],
+            reporter_phone=existing["contact"],
             description=existing["description"],
         )
     return RedirectResponse(f"/orders/{order_id}?updated=1", status_code=303)
