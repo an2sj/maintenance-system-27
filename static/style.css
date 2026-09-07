@@ -158,6 +158,10 @@ a:hover { text-decoration: underline; }
 .btn-primary { background: var(--primary); color: #fff; }
 .btn-ok { background: #15803d; color: #fff; }
 .btn-wa { background: #25d366; color: #fff; }
+.btn-edit { background: #2563eb; color: #fff; }
+.btn-qr { background: #7c3aed; color: #fff; }
+.btn-print { background: #475569; color: #fff; }
+.btn-view { background: #fff; color: var(--primary-dark); border: 1.5px solid #a7c6c0; }
 .btn-danger { background: #dc2626; color: #fff; }
 .btn-ghost { background: #fff; color: #334155; border: 1.5px solid #cbd5d1; }
 .btn-sm { padding: 5px 11px; font-size: 12.5px; border-radius: 8px; }
@@ -198,17 +202,18 @@ label em { color: #dc2626; font-style: normal; }
   overflow-x: auto; background: #fff; border: 1px solid var(--line);
   border-radius: var(--radius); box-shadow: var(--shadow);
 }
-table.tbl { width: 100%; border-collapse: collapse; min-width: 940px; font-size: 13.5px; }
+table.tbl { width: 100%; border-collapse: collapse; min-width: 980px; font-size: 13.5px; }
 table.tbl th {
   background: #eef6f4; color: var(--primary-darker); font-size: 12.5px; font-weight: 700;
-  padding: 11px 12px; text-align: right; white-space: nowrap;
+  padding: 13px 14px; text-align: right; white-space: nowrap;
 }
-table.tbl td { padding: 10px 12px; border-bottom: 1px solid #eef2f1; vertical-align: middle; }
-table.tbl tbody tr:hover { background: #f8fbfa; }
+table.tbl td { padding: 13px 14px; border-bottom: 1px solid #eef2f1; vertical-align: middle; line-height: 1.55; }
+table.tbl tbody tr:nth-child(even) { background: #fafcfb; }
+table.tbl tbody tr:hover { background: #f1f9f7; }
 td.empty, .empty { text-align: center; color: var(--muted); padding: 28px !important; font-weight: 500; }
 td.desc-cell { max-width: 240px; white-space: normal; }
 td.acts { white-space: nowrap; }
-td.acts .inline { display: inline-flex; margin: 2px; vertical-align: middle; }
+td.acts .inline { display: inline-flex; margin: 3px 2px; vertical-align: middle; }
 td.acts form.inline { margin: 0; }
 
 /* ---------------- Badges / Priority ---------------- */
@@ -359,6 +364,16 @@ table.tbl-mini td { padding: 7px 11px; }
   .stat-num { font-size: 24px; }
   .page-head-row { flex-direction: column; }
   .page-actions { width: 100%; }
+}
+@media (max-width: 560px) {
+  .topbar-in { gap: 8px; padding: 8px 12px; }
+  .brand-icon, .brand-logo { width: 36px; height: 36px; font-size: 18px; }
+  .brand-text strong { font-size: 13.5px; }
+  .nav { width: 100%; justify-content: center; gap: 2px; }
+  .nav a { padding: 6px 9px; font-size: 12px; }
+  .toolbar-form input[type=text] { min-width: 160px; }
+  table.tbl { min-width: 760px; }
+  td.acts { white-space: normal; }
 }
 
 /* ---------------- Print ---------------- */
