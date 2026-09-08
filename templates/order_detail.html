@@ -48,6 +48,7 @@
       <div class="kv"><span>{{ tr('f_technician') }}</span><b>{{ o.technician or '—' }}</b></div>
       <div class="kv"><span>{{ tr('f_received') }}</span><b class="mono">{{ o.created_at|dt }}</b></div>
       <div class="kv"><span>{{ tr('f_completion') }}</span><b class="mono">{{ o.completed_at|dt if o.completed_at else '—' }}</b></div>
+      <div class="kv"><span>{{ 'تقييم الطالب' if LANG == 'ar' else 'Student Rating' }}</span><b>{% if o.rating %}{{ '★' * o.rating }}{{ '☆' * (5 - o.rating) }} <span class="muted">({{ o.rating }}/5)</span>{% else %}—{% endif %}</b></div>
     </div>
 
     <div class="doc-label">{{ tr('f_description') }}</div>

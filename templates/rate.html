@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="{{ LANG }}" dir="{{ 'rtl' if LANG == 'ar' else 'ltr' }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{{ 'تقييم الخدمة' if LANG == 'ar' else 'Rate Service' }} | {{ HOSPITAL_NAME }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css?v=4">
+</head>
+<body>
+<main class="pub-wrap center-wrap" style="max-width:520px; margin:0 auto; padding:16px;">
+  <div class="pub-lang" style="text-align:center; margin-bottom:10px;">
+    <a href="?lang={{ 'ar' if LANG == 'en' else 'en' }}" class="btn btn-ghost btn-sm">{{ tr('lang_switch') }}</a>
+  </div>
+
+  {% if ok and o.rating and o.rating > 0 %}
+  <div class="card thanks" style="padding:28px 24px; text-align:center;">
+    <div class="thanks-icon" style="font-size:42px;">⭐</div>
+    <h1>{{ 'شكراً لتقييمك!' if LANG == 'ar' else 'Thank you!' }}</h1>
+    <p class="muted" style="margin:8px 0 4px;">{{ o.order_no }}</p>
+    <div class="stars" style="font-size:30px; letter-spacing:4px;">{{ '★' * o.rating }}{{ '☆' * (5 - o.rating) }}</div>
+    <p class="muted">{{ o.rating }} / 5</p>
+    <p style="margin-top:14px;">{{ tr('thanks_done') }}</p>
+    <a class="btn btn-primary" href="/report">{{ tr('thanks_again') }}</a>
+  </div>
+
+  {% elif o.rating and o.rating > 0 %}
+  <div class="card thanks" style="padding:28px 24px; text-align:center;">
+    <div class="thanks-icon" style="font-size:42px;">⭐</div>
+    <h1>{{ 'تم تقييم هذا الطلب من قبل' if LANG == 'ar' else 'This order was already rated' }}</h1>
+    <p class="muted" style="margin:8px 0 4px;">{{ o.order_no }}</p>
+    <div class="stars" style="font-size:30px; letter-spacing:4px;">{{ '★' * o.rating }}{{ '☆' * (5 - o.rating) }}</div>
+    <p class="muted">{{ o.rating }} / 5</p>
+  </div>
+
+  {% else %}
+  <div class="card track-card" style="padding:26px 24px;">
+    <div class="pub-org" style="text-align:center;">{{ ORG_RIGHT }} · {{ HOSPITAL_NAME }}</div>
+    <div class="order-no mono" style="text-align:center; font-size:20px; margin:8px 0 2px;">{{ o.order_no }}</div>
+    <p class="muted" style="text-align:center; font-size:13px;">{{ o.section or '—' }}</p>
+    <hr style="border:none; border-top:1px dashed var(--line); margin:14px 0;">
+
+    <form method="post" action="/rate/{{ o.token }}" style="text-align:center;">
+      <label style="display:block; font-weight:800; font-size:15px; color:var(--primary-darker); margin-bottom:14px;">
+        {{ 'قيّم جودة الخدمة المقدمة (من 1 إلى 5)' if LANG == 'ar' else 'Rate the service quality (1 to 5)' }}
+      </label>
+      <div class="star-select" style="display:flex; justify-content:center; gap:6px; direction:ltr;">
+        {% for v in range(1, 6) %}
+        <label class="star-opt">
+          <input type="radio" name="rating" value="{{ v }}" required>
+          <span class="star" style="font-size:40px; color:#cbd5e1; cursor:pointer;">★</span>
+        </label>
+        {% endfor %}
+      </div>
+      <p class="muted" style="font-size:12px; margin-top:6px;">1 = {{ 'ضعيف' if LANG == 'ar' else 'Poor' }} · 5 = {{ 'ممتاز' if LANG == 'ar' else 'Excellent' }}</p>
+      <button class="btn btn-primary" type="submit" style="margin-top:14px; width:100%;">{{ 'إرسال التقييم' if LANG == 'ar' else 'Submit Rating' }}</button>
+    </form>
+  </div>
+  {% endif %}
+</main>
+
+<script>
+  document.querySelectorAll('.star-opt input').forEach(function (input) {
+    input.addEventListener('change', function () {
+      var val = +this.value;
+      document.querySelectorAll('.star-opt .star').forEach(function (s, i) {
+        s.style.color = ((i + 1) <= val) ? '#f59e0b' : '#cbd5e1';
+      });
+    });
+  });
+</script>
+</body>
+</html>

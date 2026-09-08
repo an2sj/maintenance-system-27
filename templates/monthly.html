@@ -68,6 +68,7 @@
     <div class="kv"><span>{{ tr('mth_rejected') }}</span><b>{{ totals.rejected }}</b></div>
     <div class="kv"><span>{{ tr('mth_urgent') }}</span><b>{{ totals.urgent }}</b></div>
     <div class="kv"><span>{{ tr('mth_rate') }}</span><b>%{{ totals.rate }}</b></div>
+    <div class="kv"><span>{{ 'متوسط التقييم' if LANG == 'ar' else 'Avg. Rating' }}</span><b>{% if totals.rated %}⭐ {{ totals.avg_rating }} <span class="muted">/ 5 ({{ totals.rated }})</span>{% else %}—{% endif %}</b></div>
   </div>
 
   <div class="mini-tables">
@@ -108,7 +109,7 @@
       <thead>
         <tr>
           <th>{{ tr('col_order') }}</th><th>{{ tr('col_title') }}</th><th>{{ tr('col_reporter') }}</th><th>{{ tr('col_location') }}</th>
-          <th>{{ tr('f_maintenance_type') }}</th><th>{{ tr('f_technician') }}</th><th>{{ tr('col_priority') }}</th><th>{{ tr('col_status') }}</th>
+          <th>{{ tr('f_maintenance_type') }}</th><th>{{ tr('f_technician') }}</th><th>{{ tr('col_priority') }}</th><th>{{ tr('col_status') }}</th><th>{{ 'التقييم' if LANG == 'ar' else 'Rating' }}</th>
         </tr>
       </thead>
       <tbody>
@@ -122,6 +123,7 @@
           <td>{{ o.technician or '—' }}</td>
           <td>{{ o.priority if LANG == 'ar' else T_PRIO(o.priority) }}</td>
           <td>{{ STATUS_META[o.status][0] if (o.status in STATUS_META and LANG == 'ar') else (T_STATUS(o.status) if o.status in STATUS_META else o.status) }}</td>
+          <td class="mono">{% if o.rating %}{{ o.rating }}/5{% else %}—{% endif %}</td>
         </tr>
         {% endfor %}
       </tbody>

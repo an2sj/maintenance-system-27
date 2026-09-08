@@ -289,6 +289,7 @@ I("thanks_title", "تم استلام بلاغك بنجاح", "Your report was re
 I("thanks_ref", "رقم مرجعي لتتبع بلاغك", "Your reference number")
 I("thanks_note", "سيدرّس قسم الصيانة البلاغ ويحوّله إلى أمر عمل رسمي خلال أقرب وقت.", "Maintenance will review and convert to an official work order soon.")
 I("thanks_again", "تقديم بلاغ آخر", "Submit Another Report")
+I("thanks_done", "تم تسجيل تقييمك شكراً لك", "Your rating has been recorded. Thank you!")
 
 I("track_status", "حالة أمر العمل", "Work order status")
 I("track_notfound", "رابط غير صالح", "Invalid link")
@@ -529,6 +530,8 @@ _MIG_COLUMNS = {
     "problem_type": "TEXT NOT NULL DEFAULT ''",
     "media": "TEXT NOT NULL DEFAULT ''",
     "reporter_email": "TEXT NOT NULL DEFAULT ''",
+    "rating": "INTEGER",
+    "rated_at": "TEXT",
 }
 
 
@@ -950,13 +953,15 @@ def monthly_pdf_bytes(rows, totals, year, month, by_section) -> bytes:
     kpi = Table(
         [[_pdf_cell("إجمالي الأوامر", True), _pdf_cell("منجزة", True),
           _pdf_cell("قيد التنفيذ", True), _pdf_cell("بانتظار الاعتماد", True),
-          _pdf_cell("مرفوضة", True), _pdf_cell("نسبة الإنجاز", True)],
+          _pdf_cell("مرفوضة", True), _pdf_cell("نسبة الإنجاز", True),
+          _pdf_cell("متوسط التقييم", True)],
          [_ar_shape(str(total)), _ar_shape(str(totals.get("done", 0))),
           _ar_shape(str(totals.get("approved", 0))),
           _ar_shape(str(totals.get("pending", 0))),
           _ar_shape(str(totals.get("rejected", 0))),
-          _ar_shape(f"{totals.get('rate', 0)}%")]],
-        colWidths=[34 * mm] * 6,
+          _ar_shape(f"{totals.get('rate', 0)}%"),
+          _ar_shape(f"{totals.get('avg_rating', 0)}/5 ({totals.get('rated', 0)})")]],
+        colWidths=[34 * mm] * 7,
     )
     kpi.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0d9488")),
@@ -996,7 +1001,7 @@ def monthly_pdf_bytes(rows, totals, year, month, by_section) -> bytes:
               _pdf_cell("التاريخ", True), _pdf_cell("المبلّغ", True),
               _pdf_cell("الموقع", True), _pdf_cell("القسم", True),
               _pdf_cell("الفني", True), _pdf_cell("الأولوية", True),
-              _pdf_cell("الحالة", True)]
+              _pdf_cell("الحالة", True), _pdf_cell("التقييم", True)]
     data = [header]
     for idx, o in enumerate(rows, start=1):
         data.append([
@@ -1007,9 +1012,10 @@ def monthly_pdf_bytes(rows, totals, year, month, by_section) -> bytes:
             _pdf_cell(o["section"]), _pdf_cell(o["technician"]),
             _pdf_cell(o["priority"]),
             _pdf_cell(STATUS_META.get(o["status"], (o["status"], "warn"))[0]),
+            _ar_shape(f"{o['rating']}/5" if o["rating"] else "—"),
         ])
     table = Table(data, colWidths=[9 * mm, 26 * mm, 22 * mm, 30 * mm, 42 * mm,
-                                   26 * mm, 22 * mm, 20 * mm, 24 * mm],
+                                   26 * mm, 22 * mm, 20 * mm, 24 * mm, 14 * mm],
                   repeatRows=1)
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0d9488")),
@@ -1066,9 +1072,10 @@ def monthly_xlsx_bytes(rows, totals, year, month, by_section) -> bytes:
 
     r = 4
     kpi_headers = ["إجمالي الأوامر", "منجزة", "قيد التنفيذ", "بانتظار الاعتماد",
-                   "مرفوضة", "نسبة الإنجاز"]
+                   "مرفوضة", "نسبة الإنجاز", "متوسط التقييم"]
+    avg_txt = f"{totals.get('avg_rating', 0)}/5 ({totals.get('rated', 0)})"
     kpi_vals = [total, totals.get("done", 0), totals.get("approved", 0),
-                totals.get("pending", 0), totals.get("rejected", 0), f"{rate}%"]
+                totals.get("pending", 0), totals.get("rejected", 0), f"{rate}%", avg_txt]
     for i, h in enumerate(kpi_headers, start=1):
         c = ws.cell(row=r, column=i, value=h)
         c.fill = fill
@@ -1103,7 +1110,7 @@ def monthly_xlsx_bytes(rows, totals, year, month, by_section) -> bytes:
     ws.cell(row=r, column=1, value="سجل أوامر العمل التفصيلي").font = Font(bold=True)
     r += 1
     headers = ["م", "رقم الأمر", "التاريخ", "المبلّغ", "الموقع", "القسم",
-               "الفني", "الأولوية", "الحالة"]
+               "الفني", "الأولوية", "الحالة", "التقييم"]
     for i, h in enumerate(headers, start=1):
         c = ws.cell(row=r, column=i, value=h)
         c.fill = fill
@@ -1115,14 +1122,15 @@ def monthly_xlsx_bytes(rows, totals, year, month, by_section) -> bytes:
         status_txt = STATUS_META.get(o["status"], (o["status"], "warn"))[0]
         vals = [idx, o["order_no"], str(o["created_at"] or "")[:10],
                 o["reporter_name"], o["location"], o["section"],
-                o["technician"] or "—", o["priority"], status_txt]
+                o["technician"] or "—", o["priority"], status_txt,
+                f"{o['rating']}/5" if o["rating"] else "—"]
         for i, v in enumerate(vals, start=1):
             c = ws.cell(row=r, column=i, value=v)
             c.border = border
             c.alignment = Alignment(vertical="top", wrap_text=(i == 5))
         r += 1
 
-    widths = [6, 18, 12, 22, 32, 22, 18, 14, 20]
+    widths = [6, 18, 12, 22, 32, 22, 18, 14, 20, 12]
     for i, w in enumerate(widths, start=1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
@@ -1497,7 +1505,7 @@ def order_detail(order_id: int, request: Request):
     row = get_order_or_404(request, order_id)
     if row is None:
         return templates.TemplateResponse(request, "404.html", context(request), status_code=404)
-    rating_url = f"{base_url(request)}/track/{row['token']}"
+    rating_url = f"{base_url(request)}/rate/{row['token']}"
     return templates.TemplateResponse(
         request, "order_detail.html",
         context(request, o=row, media=media_list(row["media"]),
@@ -1550,7 +1558,7 @@ def update_order(order_id: int, request: Request, status: str = Form(...), techn
         )
     # عند إنجاز العمل: إرسال رسالة تقييم عبر البريد إلى المبلّغ
     if status == "done" and existing["status"] != "done":
-        rating_url = f"{base_url(request)}/track/{existing['token']}"
+        rating_url = f"{base_url(request)}/rate/{existing['token']}"
         _send_rating_email(
             order_no=existing["order_no"],
             reporter_name=existing["reporter_name"],
@@ -1761,6 +1769,41 @@ def track(token: str, request: Request):
 
 
 # --------------------------------------------------------------------------- #
+# صفحة التقييم الحقيقية (1-5)
+# --------------------------------------------------------------------------- #
+@app.get("/rate/{token}", response_class=HTMLResponse)
+def rate_page(token: str, request: Request, ok: int = 0):
+    with db() as c:
+        row = c.execute(
+            "SELECT * FROM work_orders WHERE token=?", (token,)
+        ).fetchone()
+    if row is None:
+        return templates.TemplateResponse(request, "404.html", context(request), status_code=404)
+    return templates.TemplateResponse(
+        request, "rate.html",
+        context(request, o=row, ok=ok),
+    )
+
+
+@app.post("/rate/{token}")
+def rate_submit(token: str, request: Request, rating: int = Form(...)):
+    if rating < 1 or rating > 5:
+        raise HTTPException(status_code=400, detail="rating must be 1..5")
+    with db() as c:
+        row = c.execute(
+            "SELECT id, rating FROM work_orders WHERE token=?", (token,)
+        ).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="not found")
+        c.execute(
+            "UPDATE work_orders SET rating=?, rated_at=COALESCE(rated_at, ?) "
+            "WHERE id=? AND rating IS NULL",
+            (rating, fmt(now_local()), row["id"]),
+        )
+    return RedirectResponse(f"/rate/{token}?ok=1", status_code=303)
+
+
+# --------------------------------------------------------------------------- #
 # خدمة الملفات المرفوعة (الميديا)
 # --------------------------------------------------------------------------- #
 @app.get("/media/{filename}")
@@ -1811,6 +1854,8 @@ def monthly_report(request: Request, year: int = 0, month: int = 0):
         if r["priority"] == "طارئة":
             total_urgent += 1
 
+    rated_rows = [r for r in rows if r["rating"]]
+    avg_rating = round(sum(r["rating"] for r in rated_rows) / len(rated_rows), 1) if rated_rows else 0
     totals = {
         "total": len(rows),
         "done": by_status.get("done", 0),
@@ -1819,6 +1864,8 @@ def monthly_report(request: Request, year: int = 0, month: int = 0):
         "rejected": by_status.get("rejected", 0),
         "urgent": total_urgent,
         "rate": round(by_status.get("done", 0) * 100 / len(rows)) if rows else 0,
+        "rated": len(rated_rows),
+        "avg_rating": avg_rating,
     }
 
     return templates.TemplateResponse(
@@ -1855,6 +1902,7 @@ def _monthly_export_data(year: int, month: int):
         s = r["section"] or "غير محدد"
         by_section[s] = by_section.get(s, 0) + 1
         by_status[r["status"]] = by_status.get(r["status"], 0) + 1
+    rated_rows = [r for r in rows if r["rating"]]
     totals = {
         "total": len(rows),
         "done": by_status.get("done", 0),
@@ -1862,6 +1910,8 @@ def _monthly_export_data(year: int, month: int):
         "pending": by_status.get("pending", 0),
         "rejected": by_status.get("rejected", 0),
         "rate": round(by_status.get("done", 0) * 100 / len(rows)) if rows else 0,
+        "rated": len(rated_rows),
+        "avg_rating": round(sum(r["rating"] for r in rated_rows) / len(rated_rows), 1) if rated_rows else 0,
     }
     return rows, totals, by_section
 
