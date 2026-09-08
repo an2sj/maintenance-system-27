@@ -1194,9 +1194,8 @@ def _tg_notify_done(order_no, reporter_name, reporter_contact, description):
 
 def notify_new_request(order_no: str, section: str, location: str,
                        reporter_name: str, contact: str, description: str):
-    """إرسال تنبيه فوري (بريد/واتساب/تلغرام) عند وصول بلاغ QR جديد."""
+    """إرسال تنبيه فوري (بريد/تلغرام) عند وصول بلاغ QR جديد — رسائل الواتساب يدوية عبر لوحة wa.me."""
     _notify_email(order_no, section, location, reporter_name, contact, description)
-    _notify_whatsapp(order_no, section, location, reporter_name, contact, description)
     _tg_notify_new(order_no, section, location, reporter_name, contact, description)
 
 
@@ -1316,24 +1315,8 @@ def _send_email_to(to: str, subject: str, body: str) -> bool:
 
 
 def _send_rating_email(order_no, reporter_name, reporter_telegram, reporter_phone, description, rating_url=""):
-    """إشعار إنجاز + رسالة تقييم: واتساب لرقم الطالب ولرقم الإدارة (وتيليجرام تبقى احتياطاً)."""
+    """إشعار إنجاز: تيليجرام للأدمن وللطالب — رسالة الإنجاز عبر واتساب تُرسل يدويًا من لوحة wa.me."""
     _tg_notify_done(order_no, reporter_name, reporter_telegram, description[:150])
-    # واتساب لطالب الخدمة عبر رقمه الهاتفي إن توفر، وللإدارة عبر WHATSAPP_TO
-    student_phone = to_wa_phone(reporter_phone or "")
-    admin_phone = to_wa_phone(_env("WHATSAPP_TO") or "")
-    if student_phone or admin_phone:
-        wa = (
-            f"تم إنجاز طلب الصيانة بنجاح ✅\n"
-            f"📋 رقم البلاغ: {order_no}\n"
-            f"يرجى تقييم الخدمة عبر الرابط: {rating_url}\n\n"
-            f"Your maintenance request has been completed ✅\n"
-            f"📋 Order Ref: {order_no}\n"
-            f"Please rate our service: {rating_url}"
-        )
-        if student_phone:
-            send_whatsapp_message(student_phone, wa)
-        if admin_phone and admin_phone != student_phone:
-            send_whatsapp_message(admin_phone, wa)
 
 
 
@@ -1660,20 +1643,6 @@ def approve_request(order_id: int):
                 "UPDATE work_orders SET status='approved' WHERE id=? AND status='pending'",
                 (order_id,),
             )
-    if row:
-        phone = (row["contact"] or "").strip()
-        if phone:
-            body = (
-                f"أهلاً بك، تم استلام طلب الصيانة بنجاح 🛠️\n"
-                f"📋 رقم البلاغ: {row['order_no']}\n"
-                f"🏢 قسم الصيانة والتشغيل - المدينة السكنية\n"
-                f"طلبك قيد المراجعة وسيتم إسناده للفني المختص قريباً.\n\n"
-                f"Welcome, your maintenance request has been received 🛠️\n"
-                f"📋 Order Ref: {row['order_no']}\n"
-                f"🏢 Residential City - Maintenance Dept.\n"
-                f"Your request is under review and will be assigned shortly."
-            )
-            send_whatsapp_message(phone, body)
     return RedirectResponse(f"/orders/{order_id}?approved=1", status_code=303)
 
 
