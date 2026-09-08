@@ -1216,6 +1216,7 @@ def send_whatsapp_message(to_phone: str, message_text: str) -> bool:
     """إرسال رسالة WhatsApp عبر Meta Graph API. تُعيد True عند النجاح."""
     token = _env("WHATSAPP_TOKEN")
     pid = _whatsapp_phone_id()
+    to_phone = to_wa_phone(to_phone or "")
     if not (token and pid and to_phone):
         print(f"[WA] skipped: token={bool(token)} pid={bool(pid)} to={to_phone}")
         return False
@@ -1267,11 +1268,12 @@ def _send_email_to(to: str, subject: str, body: str) -> bool:
 
 
 def _send_rating_email(order_no, reporter_name, reporter_telegram, reporter_phone, description, rating_url=""):
-    """إشعار إنجاز + رسالة تقييم: تليجرام للمعرّف، وواتساب لرقم الهاتف."""
+    """إشعار إنجاز + رسالة تقييم: واتساب لرقم الطالب ولرقم الإدارة (وتيليجرام تبقى احتياطاً)."""
     _tg_notify_done(order_no, reporter_name, reporter_telegram, description[:150])
-    # واتساب لطالب الخدمة عبر رقمه الهاتفي إن توفر
-    phone = (reporter_phone or "").strip()
-    if phone:
+    # واتساب لطالب الخدمة عبر رقمه الهاتفي إن توفر، وللإدارة عبر WHATSAPP_TO
+    student_phone = to_wa_phone(reporter_phone or "")
+    admin_phone = to_wa_phone(_env("WHATSAPP_TO") or "")
+    if student_phone or admin_phone:
         wa = (
             f"تم إنجاز طلب الصيانة بنجاح ✅\n"
             f"📋 رقم البلاغ: {order_no}\n"
@@ -1280,7 +1282,10 @@ def _send_rating_email(order_no, reporter_name, reporter_telegram, reporter_phon
             f"📋 Order Ref: {order_no}\n"
             f"Please rate our service: {rating_url}"
         )
-        send_whatsapp_message(phone, wa)
+        if student_phone:
+            send_whatsapp_message(student_phone, wa)
+        if admin_phone and admin_phone != student_phone:
+            send_whatsapp_message(admin_phone, wa)
 
 
 
