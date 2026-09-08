@@ -697,6 +697,54 @@ def wa_link(contact, order_no):
     return f"https://wa.me/{digits}?text={quote(msg)}"
 
 
+def wa_message_templates(order, rating_url=""):
+    """قائمة رسائل واتساب جاهزة (ثنائي عربي/إنجليزي) مع روابط wa.me مفعّلة برقم المبلّغ.
+    يرسل المدير الرسالة يدويًا من واتسابه الخاص — يعمل دائمًا بدون الاعتماد على Meta API."""
+    phone = to_wa_phone(order["contact"] or "")
+    if not phone:
+        return []
+    no = order["order_no"]
+    templates = [
+        ("receive", "استلام البلاغ", "Receive", (
+            f"أهلاً بك، تم استلام طلب الصيانة بنجاح 🛠️\n"
+            f"📋 رقم البلاغ: {no}\n"
+            f"🏢 قسم الصيانة والتشغيل - المدينة السكنية\n"
+            f"طلبك قيد المراجعة وسيتم إسناده للفني المختص قريباً.\n\n"
+            f"Welcome, your maintenance request has been received 🛠️\n"
+            f"📋 Order Ref: {no}\n"
+            f"🏢 Residential City - Maintenance Dept.\n"
+            f"Your request is under review and will be assigned shortly."
+        )),
+        ("progress", "قيد المعالجة", "In Progress", (
+            f"قسم الصيانة والتشغيل يبلغكم أن طلب الصيانة الخاص بكم قيد المعالجة الآن 🛠️\n"
+            f"📋 رقم البلاغ: {no}\n"
+            f"سيتم إشعاركم فور إتمام العمل.\n\n"
+            f"Maintenance Dept. — your request is now being processed 🛠️\n"
+            f"📋 Order Ref: {no}\n"
+            f"You will be notified once the work is completed."
+        )),
+        ("done", "إنجاز + تقييم", "Completed", (
+            f"تم إنجاز طلب الصيانة بنجاح ✅\n"
+            f"📋 رقم البلاغ: {no}\n"
+            f"يرجى تقييم الخدمة عبر الرابط: {rating_url}\n\n"
+            f"Your maintenance request has been completed ✅\n"
+            f"📋 Order Ref: {no}\n"
+            f"Please rate our service: {rating_url}"
+        )),
+        ("follow", "متابعة / استفسار", "Follow-up", (
+            f"مرحباً، معك قسم الصيانة والتشغيل بخصوص طلب الصيانة رقم: {no} 🛠️\n"
+            f"نرجو التواصل معنا إذا احتجت أي مساعدة.\n\n"
+            f"Hello, Maintenance Dept. here regarding your order: {no} 🛠️\n"
+            f"Feel free to contact us if you need any help."
+        )),
+    ]
+    return [
+        {"id": tid, "ar": t_ar, "en": t_en,
+         "url": f"https://wa.me/{phone}?text={quote(body)}"}
+        for tid, t_ar, t_en, body in templates
+    ]
+
+
 def context(request: Request, **extra) -> dict:
     with db() as c:
         pending_count = c.execute(
@@ -1466,9 +1514,11 @@ def order_detail(order_id: int, request: Request):
     row = get_order_or_404(request, order_id)
     if row is None:
         return templates.TemplateResponse(request, "404.html", context(request), status_code=404)
+    rating_url = f"{base_url(request)}/track/{row['token']}"
     return templates.TemplateResponse(
         request, "order_detail.html",
-        context(request, o=row, media=media_list(row["media"])),
+        context(request, o=row, media=media_list(row["media"]),
+                wa_msgs=wa_message_templates(row, rating_url)),
     )
 
 

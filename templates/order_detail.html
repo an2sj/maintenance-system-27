@@ -21,7 +21,22 @@
   </div>
 </div>
 
-<div class="detail-grid">
+{% if wa_msgs %}
+  <div class="card form-card wa-panel">
+    <div class="doc-label">💬 {{ 'رسائل واتساب الجاهزة' if LANG == 'ar' else 'Ready WhatsApp Messages' }}
+      <span class="muted">— {{ 'اضغط رسالة لفتحها في واتساب برقم المبلّغ ثم أرسلها' if LANG == 'ar' else 'Click a message to open WhatsApp with the reporter number, then send' }}</span>
+    </div>
+    <div class="wa-grid">
+      {% for m in wa_msgs %}
+      <a class="btn btn-wa" href="{{ m.url }}" target="_blank" rel="noopener" title="{{ m.en }}">
+        {{ m.ar }} <span class="muted">/ {{ m.en }}</span>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="detail-grid">
   <div class="card form-card">
     <div class="kv-grid">
       <div class="kv"><span>{{ tr('f_reporter') }}</span><b>{{ o.reporter_name }}</b></div>
