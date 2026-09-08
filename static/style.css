@@ -174,7 +174,7 @@ a:hover { text-decoration: underline; }
 .wa-panel .btn-wa { justify-content: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .btn-danger { background: #dc2626; color: #fff; }
 .btn-ghost { background: #fff; color: #334155; border: 1.5px solid #cbd5d1; }
-.btn-sm { padding: 5px 11px; font-size: 12.5px; border-radius: 8px; }
+.btn-sm { padding: 4px 9px; font-size: 12px; border-radius: 7px; }
 .btn-lg { padding: 12px 26px; font-size: 16px; }
 .btn-block { width: 100%; }
 
@@ -212,17 +212,17 @@ label em { color: #dc2626; font-style: normal; }
   overflow-x: auto; background: #fff; border: 1px solid var(--line);
   border-radius: var(--radius); box-shadow: var(--shadow);
 }
-table.tbl { width: 100%; border-collapse: collapse; min-width: 940px; font-size: 13.5px; }
+table.tbl { width: 100%; border-collapse: collapse; min-width: 0; font-size: 13px; }
 table.tbl th {
-  background: #eef6f4; color: var(--primary-darker); font-size: 12.5px; font-weight: 700;
-  padding: 11px 12px; text-align: right; white-space: nowrap;
+  background: #eef6f4; color: var(--primary-darker); font-size: 12px; font-weight: 700;
+  padding: 9px 8px; text-align: right; white-space: nowrap;
 }
-table.tbl td { padding: 9px 10px; border-bottom: 1px solid #eef2f1; vertical-align: middle; }
+table.tbl td { padding: 7px 8px; border-bottom: 1px solid #eef2f1; vertical-align: middle; }
 table.tbl tbody tr:hover { background: #f8fbfa; }
 td.empty, .empty { text-align: center; color: var(--muted); padding: 28px !important; font-weight: 500; }
-td.desc-cell { max-width: 240px; white-space: normal; }
-td.acts { white-space: nowrap; }
-td.acts .inline { display: inline-flex; margin: 2px; vertical-align: middle; }
+td.desc-cell { max-width: 180px; white-space: normal; word-break: break-word; }
+td.acts { white-space: normal; }
+td.acts .inline { display: inline-flex; margin: 1px; vertical-align: middle; }
 td.acts form.inline { margin: 0; }
 
 /* ---------------- Badges / Priority ---------------- */
