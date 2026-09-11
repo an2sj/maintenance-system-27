@@ -23,15 +23,48 @@
 
 {% if wa_msgs %}
   <div class="card form-card wa-panel">
-    <div class="doc-label">💬 {{ 'رسائل واتساب الجاهزة' if LANG == 'ar' else 'Ready WhatsApp Messages' }}
-      <span class="muted">— {{ 'اضغط رسالة لفتحها في واتساب برقم المبلّغ ثم أرسلها' if LANG == 'ar' else 'Click a message to open WhatsApp with the reporter number, then send' }}</span>
+    <div class="doc-label">💬 {{ 'لوحة رسائل الواتساب الجاهزة' if LANG == 'ar' else 'Ready WhatsApp Messages' }}
+      <span class="muted">— {{ 'اختر النموذج، عدّل النص إن رغبت، ثم افتح واتساب وأرسل' if LANG == 'ar' else 'Pick a template, edit if needed, then open WhatsApp and send' }}</span>
     </div>
-    <div class="wa-grid">
-      {% for m in wa_msgs %}
-      <a class="btn btn-wa" href="{{ m.url }}" target="_blank" rel="noopener" title="{{ m.en }}">
-        {{ m.ar }} <span class="muted">/ {{ m.en }}</span>
-      </a>
-      {% endfor %}
+
+    <div class="wa-grid wa-grid-form">
+      <div class="field">
+        <label>{{ 'رقم جوال المستلم (دولي بدون +)' if LANG == 'ar' else 'Recipient mobile (intl, no +)' }}</label>
+        <input type="text" id="waPhone" dir="ltr" value="{{ wa_phone }}" placeholder="9665xxxxxxxx">
+      </div>
+      <div class="field">
+        <label>{{ 'اختر نموذج الرسالة' if LANG == 'ar' else 'Choose a message template' }}</label>
+        <select id="waMsgType" onchange="waLoad()">
+          <option value="">-- {{ 'اختر النموذج' if LANG == 'ar' else 'Pick template' }} --</option>
+          <optgroup label="{{ 'إشعارات العميل الأساسية' if LANG == 'ar' else 'Customer Notifications' }}">
+            {% for m in wa_msgs[:5] %}
+            <option value="{{ m.id }}">{{ m.ar }} · {{ m.en }}</option>
+            {% endfor %}
+          </optgroup>
+          <optgroup label="{{ 'حالات إضافية' if LANG == 'ar' else 'Extra Scenarios' }}">
+            {% for m in wa_msgs[5:9] %}
+            <option value="{{ m.id }}">{{ m.ar }} · {{ m.en }}</option>
+            {% endfor %}
+          </optgroup>
+          <optgroup label="{{ 'الفنيين والإدارة' if LANG == 'ar' else 'Technicians & Management' }}">
+            {% for m in wa_msgs[9:] %}
+            <option value="{{ m.id }}">{{ m.ar }} · {{ m.en }}</option>
+            {% endfor %}
+          </optgroup>
+        </select>
+      </div>
+      <div class="field">
+        <label>{{ 'نص الرسالة (يمكنك تعديله)' if LANG == 'ar' else 'Message text (editable)' }}</label>
+        <textarea id="waBody" rows="6" dir="auto"></textarea>
+      </div>
+      <div class="wa-actions">
+        <button class="btn btn-ghost" type="button" onclick="waCopy()">📋 {{ 'نسخ النص' if LANG == 'ar' else 'Copy' }}</button>
+        <a id="waBtn" class="btn btn-wa" href="#" target="_blank" rel="noopener" onclick="return waOpen()">💬 {{ 'الذهاب لمحادثة الواتساب' if LANG == 'ar' else 'Open WhatsApp' }}</a>
+      </div>
+      <p class="muted" style="font-size:12px;">
+        {{ 'املأ البيانات تلقائياً من البلاغ: ' if LANG == 'ar' else 'Auto-filled from order: ' }}
+        {{ o.order_no }} · {{ o.reporter_name }} · <span dir="ltr">{{ o.contact }}</span>
+      </p>
     </div>
   </div>
   {% endif %}
@@ -117,4 +150,44 @@
   </aside>
 </div>
 
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const WA_MSGS = {{ wa_json | safe }};
+  function waLoad() {
+    const t = WA_MSGS[document.getElementById('waMsgType').value];
+    if (t) document.getElementById('waBody').value = t;
+    waRefresh();
+  }
+  function waCopy() {
+    const el = document.getElementById('waBody');
+    el.select(); el.setSelectionRange(0, 99999);
+    try { document.execCommand('copy'); } catch (err) { el.focus(); }
+    alert('{{ 'تم نسخ النص ✅' if LANG == 'ar' else 'Text copied ✅' }}');
+  }
+  function waRefresh() {
+    const p = (document.getElementById('waPhone').value || '').replace(/[^0-9]/g, '');
+    const txt = document.getElementById('waBody').value.trim();
+    const btn = document.getElementById('waBtn');
+    if (!p || !txt) { btn.href = '#'; return; }
+    btn.href = 'https://wa.me/' + p + '?text=' + encodeURIComponent(txt);
+  }
+  function waOpen() {
+    const btn = document.getElementById('waBtn');
+    waRefresh();
+    if (btn.href === '#' || !btn.href.includes('wa.me')) {
+      alert('{{ 'أدخل رقم الجوال ونص الرسالة أولاً' if LANG == 'ar' else 'Enter the phone number and message text first' }}');
+      return false;
+    }
+    return true;
+  }
+  document.addEventListener('DOMContentLoaded', function () {
+    document.getElementById('waPhone').addEventListener('input', function (e) {
+      e.target.value = e.target.value.replace(/[^0-9]/g, '');
+      waRefresh();
+    });
+    document.getElementById('waBody').addEventListener('input', waRefresh);
+  });
+</script>
 {% endblock %}

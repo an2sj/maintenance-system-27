@@ -701,50 +701,103 @@ def wa_link(contact, order_no):
 
 
 def wa_message_templates(order, rating_url=""):
-    """قائمة رسائل واتساب جاهزة (ثنائي عربي/إنجليزي) مع روابط wa.me مفعّلة برقم المبلّغ.
+    """قوالب رسائل واتساب الجاهزة (11 حالة، ثنائي عربي/إنجليزي) مبنية من بيانات البلاغ.
     يرسل المدير الرسالة يدويًا من واتسابه الخاص — يعمل دائمًا بدون الاعتماد على Meta API."""
     phone = to_wa_phone(order["contact"] or "")
     if not phone:
         return []
     no = order["order_no"]
-    templates = [
-        ("receive", "استلام البلاغ", "Receive", (
-            f"أهلاً بك، تم استلام طلب الصيانة بنجاح 🛠️\n"
-            f"📋 رقم البلاغ: {no}\n"
-            f"🏢 قسم الصيانة والتشغيل - المدينة السكنية\n"
-            f"طلبك قيد المراجعة وسيتم إسناده للفني المختص قريباً.\n\n"
-            f"Welcome, your maintenance request has been received 🛠️\n"
-            f"📋 Order Ref: {no}\n"
-            f"🏢 Residential City - Maintenance Dept.\n"
-            f"Your request is under review and will be assigned shortly."
-        )),
-        ("progress", "قيد المعالجة", "In Progress", (
-            f"قسم الصيانة والتشغيل يبلغكم أن طلب الصيانة الخاص بكم قيد المعالجة الآن 🛠️\n"
-            f"📋 رقم البلاغ: {no}\n"
-            f"سيتم إشعاركم فور إتمام العمل.\n\n"
-            f"Maintenance Dept. — your request is now being processed 🛠️\n"
-            f"📋 Order Ref: {no}\n"
-            f"You will be notified once the work is completed."
-        )),
-        ("done", "إنجاز + تقييم", "Completed", (
-            f"تم إنجاز طلب الصيانة بنجاح ✅\n"
-            f"📋 رقم البلاغ: {no}\n"
-            f"يرجى تقييم الخدمة عبر الرابط: {rating_url}\n\n"
-            f"Your maintenance request has been completed ✅\n"
-            f"📋 Order Ref: {no}\n"
-            f"Please rate our service: {rating_url}"
-        )),
-        ("follow", "متابعة / استفسار", "Follow-up", (
-            f"مرحباً، معك قسم الصيانة والتشغيل بخصوص طلب الصيانة رقم: {no} 🛠️\n"
-            f"نرجو التواصل معنا إذا احتجت أي مساعدة.\n\n"
-            f"Hello, Maintenance Dept. here regarding your order: {no} 🛠️\n"
-            f"Feel free to contact us if you need any help."
-        )),
+    name = (order["reporter_name"] or "").strip() or "الساكن"
+    loc = (order["location"] or "").strip() or "الموقع"
+    typ = (order["section"] or "").strip() or "الصيانة"
+    t = [
+        ("receive", "استلام الطلب", "Receive",
+         (f"عزيزي {name}، تم استلام طلب الصيانة رقم {no} بنجاح ✅\n"
+          f"فريقنا الفني يعمل على مراجعة الطلب وسيتم التواصل معك قريباً.\n"
+          f"نحن في خدمتكم دائماً.\n\n"
+          f"Dear {name}, your maintenance request {no} has been received successfully ✅\n"
+          f"Our technical team is reviewing it and will contact you soon.\n"
+          f"We are always at your service.")),
+        ("in_progress", "اعتماد وقيد التنفيذ", "Approved / In Progress",
+         (f"عزيزي {name}، تم اعتماد طلب الصيانة رقم {no} وهو الآن قيد التنفيذ 🛠️\n"
+          f"الفريق المختص في طريقه لمباشرة العمل.\n"
+          f"نحن دائماً في خدمتكم.\n\n"
+          f"Dear {name}, your maintenance request {no} has been approved and is now in progress 🛠️\n"
+          f"Our specialist team is on its way to start the work.\n"
+          f"We are always at your service.")),
+        ("followup", "متابعة الإنجاز", "Completion Follow-up",
+         (f"عزيزي {name}، بخصوص طلب الصيانة رقم {no}:\n"
+          f"نرجو التكرم بالإفادة هل تم إنجاز العمل بنجاح أم لا يزال قيد التنفيذ؟\n"
+          f"نبقى في خدمتكم.\n\n"
+          f"Dear {name}, regarding maintenance request {no}:\n"
+          f"Please kindly confirm whether the work has been completed successfully or is still in progress.\n"
+          f"We remain at your service.")),
+        ("completed", "إتمام الطلب والتقييم", "Completed + Rating",
+         (f"عزيزي {name}، تم إنجاز طلب الصيانة رقم {no} بنجاح ✅\n"
+          f"يرجى تقييم جودة الخدمة عبر الرابط: {rating_url}\n"
+          f"نحن في خدمتكم دائماً.\n\n"
+          f"Dear {name}, your maintenance request {no} has been completed ✅\n"
+          f"Please rate our service: {rating_url}\n"
+          f"We are always at your service.")),
+        ("apology", "اعتذار عن تأخير", "Apology for Delay",
+         (f"عزيزي {name}، نعتذر بصدق عن التأخير بخصوص البلاغ رقم {no} 🙏\n"
+          f"فريقنا الفني فحص المشكلة وسيُعالجها بأولوية عاجلة.\n"
+          f"نقدّر صبركم ونبقى في خدمتكم.\n\n"
+          f"Dear {name}, we sincerely apologize for the delay regarding request {no} 🙏\n"
+          f"Our technical team inspected the issue and will resolve it as an urgent priority.\n"
+          f"We deeply appreciate your patience and remain at your service.")),
+        ("parts_waiting", "انتظار قطع الغيار", "Waiting for Spare Parts",
+         (f"عزيزي {name}، بخصوص البلاغ رقم {no}:\n"
+          f"قام الفني بمعاينة الموقع، والتركيب يتطلب قطع غيار تم طلبها وهي في الطريق.\n"
+          f"سنبلغكم فور وصول القطع. شكراً لصبركم.\n\n"
+          f"Dear {name}, regarding request {no}:\n"
+          f"Our technician inspected the site. The job requires spare parts that have been ordered and are being dispatched.\n"
+          f"We will update you as soon as they arrive. Thank you for your patience.")),
+        ("access_denied", "متعذر الدخول", "Access Denied",
+         (f"عزيزي {name}، بخصوص البلاغ رقم {no}:\n"
+          f"وصل الفني إلى {loc} لكنه لم يتمكن من الدخول.\n"
+          f"نرجو إعلامنا بوقت تيسر وجودكم لإعادة جدولة الزيارة.\n"
+          f"شكراً لتعاونكم.\n\n"
+          f"Dear {name}, regarding request {no}:\n"
+          f"Our technician arrived at {loc} but was unable to access the unit.\n"
+          f"Please let us know when you are available so we can reschedule the visit.\n"
+          f"Thank you for your cooperation.")),
+        ("scheduled_visit", "تحديد موعد زيارة الفني", "Scheduled Visit",
+         (f"عزيزي {name}، نحيطكم علماً بأن الفني المختص سيزوركم بخصوص البلاغ رقم {no}\n"
+          f"في التاريخ/الوقت التالي: [التاريخ/الوقت]\n"
+          f"نرجو التأكد من وجود من يستقبله. شكراً لتعاونكم.\n\n"
+          f"Dear {name}, our technician is scheduled to visit regarding request {no}\n"
+          f"on: [DATE/TIME]\n"
+          f"Please ensure someone is available to receive them. Thank you.")),
+        ("scheduled_preventive", "تنبيه صيانة دورية", "Preventive Maintenance",
+         (f"عزيزي {name}، نحيطكم علماً بإجراء فحص صيانة دورية (نوعية {typ})\n"
+          f"لمبنى/وحدة: {loc} خلال الأيام القادمة.\n"
+          f"شكراً لتفهمكم وتعاونكم.\n\n"
+          f"Dear {name}, a routine preventive maintenance check for {typ}\n"
+          f"is scheduled for building/unit: {loc} soon.\n"
+          f"Thank you for your understanding and cooperation.")),
+        ("tech_assign", "تكليف فني بمهمة", "Technician Assignment",
+         (f"🚨 تكليف بمهمة صيانة جديدة:\n"
+          f"- رقم البلاغ: {no}\n"
+          f"- الموقع: {loc}\n"
+          f"- نوع الصيانة: {typ}\n"
+          f"يرجى التوجه للموقع فوراً وتحديث الحالة في النظام.\n\n"
+          f"🚨 New maintenance assignment:\n"
+          f"- Order: {no}\n"
+          f"- Location: {loc}\n"
+          f"- Type: {typ}\n"
+          f"Please proceed immediately and update the system.")),
+        ("escalation", "تصعيد تأخير بلاغ", "Escalation",
+         (f"🛑 تنبيه تصعيد:\n"
+          f"البلاغ رقم {no} تجاوز الوقت المحدد للتنفيذ دون إغلاق.\n"
+          f"يرجى المتابعة العاجلة مع الفني المكلف.\n\n"
+          f"🛑 Escalation alert:\n"
+          f"Order {no} exceeded the SLA without completion.\n"
+          f"Please follow up urgently with the assigned technician.")),
     ]
     return [
-        {"id": tid, "ar": t_ar, "en": t_en,
-         "url": f"https://wa.me/{phone}?text={quote(body)}"}
-        for tid, t_ar, t_en, body in templates
+        {"id": tid, "ar": t_ar, "en": t_en, "body": body}
+        for tid, t_ar, t_en, body in t
     ]
 
 
@@ -1506,10 +1559,14 @@ def order_detail(order_id: int, request: Request):
     if row is None:
         return templates.TemplateResponse(request, "404.html", context(request), status_code=404)
     rating_url = f"{base_url(request)}/rate/{row['token']}"
+    wa_msgs = wa_message_templates(row, rating_url)
     return templates.TemplateResponse(
         request, "order_detail.html",
         context(request, o=row, media=media_list(row["media"]),
-                wa_msgs=wa_message_templates(row, rating_url)),
+                wa_msgs=wa_msgs,
+                wa_phone=to_wa_phone(row["contact"] or ""),
+                wa_json=json.dumps({m["id"]: m["body"] for m in wa_msgs},
+                                   ensure_ascii=False)),
     )
 
 
