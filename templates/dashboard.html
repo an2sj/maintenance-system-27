@@ -114,15 +114,15 @@ window.__chartData = {{ chart_data | safe }};
         <td><span class="badge b-{{ STATUS_META[o.status][1] }}">{{ STATUS_META[o.status][0] if LANG == 'ar' else T_STATUS(o.status) }}</span></td>
         <td class="nowrap">{{ ('بلاغ QR' if o.source == 'qr' else 'لوحة التحكم') if LANG == 'ar' else ('QR' if o.source == 'qr' else 'Dashboard') }}</td>
         <td class="acts">
-          <a class="btn btn-ghost btn-sm inline" href="/orders/{{ o.id }}">{{ tr('action_view') }}</a>
-          <a class="btn btn-sm inline" href="/orders/{{ o.id }}/edit">{{ tr('action_edit') }}</a>
+          <a class="btn btn-ghost btn-sm inline" href="/orders/{{ o.id }}" data-tip="{{ 'عرض التفاصيل' if LANG == 'ar' else 'View details' }}">{{ tr('action_view') }}</a>
+          <a class="btn btn-sm inline" href="/orders/{{ o.id }}/edit" data-tip="{{ 'تعديل الطلب' if LANG == 'ar' else 'Edit order' }}">{{ tr('action_edit') }}</a>
           {% if o.contact %}<a class="btn btn-wa btn-sm inline" target="_blank" rel="noopener"
-             href="{{ WA_LINK(o.contact, o.order_no) }}">💬 {{ tr('btn_wa') }}</a>{% endif %}
-          <a class="btn btn-sm inline" href="/orders/{{ o.id }}/qr.png" title="{{ 'تحميل رمز QR' if LANG == 'ar' else 'Download QR' }}">⬇ QR</a>
-          <a class="btn btn-sm inline" href="/orders/{{ o.id }}/print?autoprint=1">🖨</a>
+             href="{{ WA_LINK(o.contact, o.order_no) }}" data-tip="{{ 'مراسلة عبر واتساب' if LANG == 'ar' else 'Chat on WhatsApp' }}">💬 {{ tr('btn_wa') }}</a>{% endif %}
+          <a class="btn btn-sm inline" href="/orders/{{ o.id }}/qr.png" data-tip="{{ 'تحميل رمز QR' if LANG == 'ar' else 'Download QR' }}">⬇ QR</a>
+          <a class="btn btn-sm inline" href="/orders/{{ o.id }}/print?autoprint=1" data-tip="{{ 'طباعة أمر العمل' if LANG == 'ar' else 'Print work order' }}">🖨</a>
           <form class="inline" method="post" action="/orders/{{ o.id }}/delete"
                 onsubmit="return confirm('{{ 'حذف' if LANG == 'ar' else 'Delete' }} {{ o.order_no }}?')">
-            <button class="btn btn-danger btn-sm" type="submit">🗑</button>
+            <button class="btn btn-danger btn-sm" type="submit" data-tip="{{ 'حذف الطلب' if LANG == 'ar' else 'Delete order' }}">🗑</button>
           </form>
         </td>
       </tr>

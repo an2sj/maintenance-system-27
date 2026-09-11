@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/style.css?v=6">
+  <link rel="stylesheet" href="/static/style.css?v=7">
   <style>.back-row { margin: 10px 0; }</style>
   {% block head %}{% endblock %}
 </head>
@@ -35,8 +35,13 @@
       <a href="/poster" {% if path == '/poster' %}class="active"{% endif %}>{{ tr('nav_poster') }}</a>
       <a href="/report" title="{{ tr('title_report') }}">{{ 'بلاغ عام' if LANG == 'ar' else 'Public Report' }}</a>
       <button id="darkModeToggle" class="btn-dark-toggle" type="button"
-              data-dark-ar="🌙 الوضع الداكن" data-light-ar="☀️ الوضع الفاتح"
-              title="{{ 'تبديل الوضع الداكن / الفاتح' if LANG == 'ar' else 'Toggle dark / light mode' }}">{{ '🌙 الوضع الداكن' if LANG == 'ar' else '🌙 Dark' }}</button>
+              data-tip="{{ 'تبديل الوضع الداكن / الفاتح' if LANG == 'ar' else 'Toggle dark / light mode' }}"
+              aria-label="{{ 'تبديل الوضع الداكن / الفاتح' if LANG == 'ar' else 'Toggle dark / light mode' }}"
+              data-dark-ar="🌙 الوضع الداكن" data-light-ar="☀️ الوضع الفاتح">{{ '🌙 الوضع الداكن' if LANG == 'ar' else '🌙 Dark' }}</button>
+      <button id="bellBtn" class="bell-btn" type="button"
+              data-tip="{{ 'طلب جديد! اضغط لفتح القائمة' if LANG == 'ar' else 'New request! Click to open list' }}"
+              aria-label="{{ 'إشعارات الطلبات الجديدة' if LANG == 'ar' else 'New orders notifications' }}"
+              onclick="window.location.href='/incoming'">🔔<span id="bellBadge" class="bell-badge" hidden>0</span></button>
       <a class="lang-toggle" href="?lang={{ 'ar' if LANG == 'en' else 'en' }}">{{ tr('lang_switch') }}</a>
       {% if protected %}<a href="/logout" class="logout">{{ tr('nav_logout') }}</a>{% endif %}
     </nav>
@@ -70,7 +75,7 @@ function goBack() {
   var darkAr = btn.getAttribute('data-dark-ar');
   var lightAr = btn.getAttribute('data-light-ar');
   var darkEn = '☀️ Light';
-  var lightEn = '🌙 Dark'; 
+  var lightEn = '🌙 Dark';
   function label(dark) {
     if (!btn) return;
     btn.innerHTML = dark ? (darkAr || darkEn) : (lightAr || lightEn);
@@ -89,6 +94,104 @@ function goBack() {
       label(dark);
     });
   }
+})();
+
+/* إشعارات الطلبات الجديدة: جرس + إشعار سطح المكتب + صوت */
+(function () {
+  var bell = document.getElementById('bellBtn');
+  var badge = document.getElementById('bellBadge');
+  var LANG = document.documentElement.lang;
+  var seen = parseInt(localStorage.getItem('wo_seen_id') || '0', 10);
+  var unread = 0;
+  var PERM = 'default';
+
+  /** عند فتح صفحة الواردات: نعتبر كل شيء مرئيًا محذوفًا (قراءة) */
+  if (window.location.pathname === '/incoming') {
+    fetch('/api/poll?last=0', { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d && d.max_id) { seen = d.max_id; localStorage.setItem('wo_seen_id', String(seen)); }
+        updateBadge(0);
+      }).catch(function () {});
+  }
+
+  function chime() {
+    try {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      var ctx = new Ctx();
+      var t = ctx.currentTime;
+      [880, 1175].forEach(function (f, i) {
+        var o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = 'sine'; o.frequency.value = f;
+        o.connect(g); g.connect(ctx.destination);
+        g.gain.setValueAtTime(0.0001, t + i * 0.18);
+        g.gain.exponentialRampToValueAtTime(0.22, t + i * 0.18 + 0.03);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.18 + 0.5);
+        o.start(t + i * 0.18); o.stop(t + i * 0.18 + 0.55);
+      });
+      setTimeout(function () { ctx.close(); }, 1400);
+    } catch (e) {}
+  }
+
+  function updateBadge(n) {
+    unread = n;
+    if (bell) bell.classList.toggle('has-new', n > 0);
+    if (badge) {
+      badge.textContent = String(Math.min(n, 99));
+      badge.hidden = !(n > 0);
+    }
+  }
+
+  function notify(order) {
+    if (PERM === 'granted' && 'Notification' in window) {
+      try {
+        var text = (order.reporter_name || '—') + ' · ' + (order.section || '');
+        if (order.location) text += ' · ' + order.location;
+        var n = new Notification('🛠️ ' + (order.order_no || '#طلب جديد'), {
+          body: text,
+          icon: '/static/logo.png',
+          tag: 'wo-' + order.id
+        });
+        n.onclick = function () { window.focus(); window.location.href = '/orders/' + order.id; };
+      } catch (e) {}
+    }
+    chime();
+  }
+
+  function requestPerm() {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'granted') { PERM = 'granted'; return; }
+    if (Notification.permission === 'default') {
+      Notification.requestPermission().then(function (p) {
+        PERM = p;
+        if (p === 'granted' && unread > 0) {
+          try {
+            new Notification('🛠️ نظام الصيانة', { body: 'تم تفعيل إشعارات الطلبات الجديدة.' });
+          } catch (e) {}
+        }
+      }).catch(function () {});
+    }
+  }
+  if (bell) bell.addEventListener('click', requestPerm);
+  if (document.visibilityState !== 'hidden') requestPerm();
+
+  function poll() {
+    fetch('/api/poll?last=' + seen, { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d || !Array.isArray(d.new)) return;
+        if (d.new.length > 0) {
+          updateBadge(unread + d.new.length);
+          d.new.forEach(notify);
+          seen = d.max_id;
+          localStorage.setItem('wo_seen_id', String(seen));
+        }
+      })
+      .catch(function () {});
+  }
+  setInterval(poll, 45000);
+  poll();
 })();
 </script>
 

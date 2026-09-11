@@ -406,6 +406,84 @@ table.tbl-mini td { padding: 7px 11px; }
 }
 .btn-dark-toggle:hover { background: rgba(255, 255, 255, .28); }
 
+/* ---------------- Bell (إشعارات الطلبات الجديدة) ---------------- */
+.bell-btn {
+  position: relative;
+  background: rgba(255, 255, 255, .16);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, .35);
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 16px;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background .15s, transform .15s;
+}
+.bell-btn:hover { background: rgba(255, 255, 255, .28); }
+.bell-btn.has-new { animation: bell-ring .6s ease 2; }
+@keyframes bell-ring {
+  0%, 100% { transform: rotate(0); }
+  20% { transform: rotate(14deg); }
+  40% { transform: rotate(-12deg); }
+  60% { transform: rotate(8deg); }
+  80% { transform: rotate(-6deg); }
+}
+.bell-badge {
+  position: absolute;
+  top: -6px; inset-inline-end: -6px;
+  min-width: 19px; padding: 1px 5px;
+  background: var(--accent); color: #451a03;
+  border-radius: 999px; border: 2px solid #fff;
+  font-size: 10.5px; font-weight: 700; text-align: center;
+  line-height: 1.4; display: inline-block;
+}
+body.dark-mode .bell-btn { background: rgba(255, 255, 255, .12); border-color: rgba(255,255,255,.3); }
+body.dark-mode .bell-btn:hover { background: rgba(255, 255, 255, .22); }
+
+/* ---------------- Tooltip احترافي (data-tip) ---------------- */
+[data-tip] { position: relative; }
+[data-tip]:hover::after,
+[data-tip]:focus::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #0f172a; color: #fff;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px; font-weight: 500;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .28);
+  z-index: 999;
+  pointer-events: none;
+  direction: rtl;
+  animation: tip-in .12s ease;
+}
+[data-tip]:hover::before,
+[data-tip]:focus::before {
+  content: "";
+  position: absolute;
+  bottom: calc(100%);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #0f172a;
+  border-bottom-width: 0;
+  z-index: 999;
+  pointer-events: none;
+}
+@keyframes tip-in { from { opacity: 0; transform: translate(-50%, 3px); } to { opacity: 1; transform: translate(-50%, 0); } }
+body.dark-mode [data-tip]:hover::after { background: #334155; }
+body.dark-mode [data-tip]:hover::before { border-top-color: #334155; }
+[data-tip-right]:hover::after {
+  left: auto; right: 0; transform: none; animation: none;
+}
+[data-tip-left]:hover::after {
+  left: 0; transform: none; animation: none;
+}
+.nav a[data-tip]::after { direction: inherit; }
+
 body.dark-mode {
   --bg: #121212;
   --card: #1e1e1e;

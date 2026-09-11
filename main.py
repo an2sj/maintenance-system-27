@@ -31,7 +31,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import qrcode
 import uvicorn
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, Response, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -1695,6 +1695,36 @@ def incoming(request: Request):
             "SELECT * FROM work_orders WHERE status='pending' ORDER BY id ASC"
         ).fetchall()
     return templates.TemplateResponse(request, "incoming.html", context(request, rows=rows))
+
+
+@app.get("/api/poll")
+def api_poll(last: int = 0):
+    """فحص دوري: هل وصلت طلبات جديدة بعد آخر معرّف تمت رؤيته؟"""
+    with db() as c:
+        max_id = c.execute(
+            "SELECT COALESCE(MAX(id),0) AS m FROM work_orders"
+        ).fetchone()["m"]
+        rows = c.execute(
+            "SELECT id, order_no, reporter_name, location, section, priority, created_at "
+            "FROM work_orders WHERE id > ? ORDER BY id ASC LIMIT 10",
+            (last,),
+        ).fetchall()
+        pending = c.execute(
+            "SELECT COUNT(*) FROM work_orders WHERE status='pending'"
+        ).fetchone()[0]
+    orders = [
+        {
+            "id": r["id"],
+            "order_no": r["order_no"],
+            "reporter_name": r["reporter_name"],
+            "location": r["location"],
+            "section": r["section"],
+            "priority": r["priority"],
+            "created_at": r["created_at"],
+        }
+        for r in rows
+    ]
+    return JSONResponse({"max_id": max_id, "new": orders, "count": len(orders), "pending": pending})
 
 
 @app.post("/incoming/{order_id}/approve")
