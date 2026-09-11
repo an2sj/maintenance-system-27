@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/style.css?v=5">
+  <link rel="stylesheet" href="/static/style.css?v=6">
   <style>.back-row { margin: 10px 0; }</style>
   {% block head %}{% endblock %}
 </head>
@@ -34,6 +34,9 @@
       <a href="/monthly" {% if path == '/monthly' %}class="active"{% endif %}>{{ tr('nav_monthly') }}</a>
       <a href="/poster" {% if path == '/poster' %}class="active"{% endif %}>{{ tr('nav_poster') }}</a>
       <a href="/report" title="{{ tr('title_report') }}">{{ 'بلاغ عام' if LANG == 'ar' else 'Public Report' }}</a>
+      <button id="darkModeToggle" class="btn-dark-toggle" type="button"
+              data-dark-ar="🌙 الوضع الداكن" data-light-ar="☀️ الوضع الفاتح"
+              title="{{ 'تبديل الوضع الداكن / الفاتح' if LANG == 'ar' else 'Toggle dark / light mode' }}">{{ '🌙 الوضع الداكن' if LANG == 'ar' else '🌙 Dark' }}</button>
       <a class="lang-toggle" href="?lang={{ 'ar' if LANG == 'en' else 'en' }}">{{ tr('lang_switch') }}</a>
       {% if protected %}<a href="/logout" class="logout">{{ tr('nav_logout') }}</a>{% endif %}
     </nav>
@@ -60,6 +63,33 @@ function goBack() {
   if (window.history.length > 1) { window.history.back(); }
   else { window.location.href = '/'; }
 }
+
+/* الوضع الداكن: تبديل + حفظ تلقائي في localStorage */
+(function () {
+  var btn = document.getElementById('darkModeToggle');
+  var darkAr = btn.getAttribute('data-dark-ar');
+  var lightAr = btn.getAttribute('data-light-ar');
+  var darkEn = '☀️ Light';
+  var lightEn = '🌙 Dark'; 
+  function label(dark) {
+    if (!btn) return;
+    btn.innerHTML = dark ? (darkAr || darkEn) : (lightAr || lightEn);
+  }
+  function apply(saved) {
+    var dark = saved === 'dark';
+    document.body.classList.toggle('dark-mode', dark);
+    label(dark);
+  }
+  apply(localStorage.getItem('theme') === 'dark' ? 'dark' : 'light');
+  if (btn) {
+    btn.addEventListener('click', function () {
+      var dark = !document.body.classList.contains('dark-mode');
+      document.body.classList.toggle('dark-mode', dark);
+      localStorage.setItem('theme', dark ? 'dark' : 'light');
+      label(dark);
+    });
+  }
+})();
 </script>
 
 {% block scripts %}{% endblock %}

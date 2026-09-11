@@ -390,3 +390,66 @@ table.tbl-mini td { padding: 7px 11px; }
   .mini-tables { grid-template-columns: 1fr 1fr; }
 }
 @page { size: A4 portrait; margin: 12mm; }
+
+/* ---------------- Dark Mode ---------------- */
+.btn-dark-toggle {
+  background: rgba(255, 255, 255, .16);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, .35);
+  padding: 5px 11px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 700;
+  transition: all .3s ease;
+  white-space: nowrap;
+}
+.btn-dark-toggle:hover { background: rgba(255, 255, 255, .28); }
+
+body.dark-mode {
+  --bg: #121212;
+  --card: #1e1e1e;
+  --ink: #e5e7eb;
+  --muted: #9ca3af;
+  --line: #333333;
+  --shadow: 0 1px 3px rgba(0, 0, 0, .5), 0 6px 20px rgba(0, 0, 0, .4);
+  --amber-bg: #3a2e14; --amber-tx: #fbbf24;
+  --blue-bg: #1d2b4a;  --blue-tx: #93c5fd;
+  --green-bg: #14322a; --green-tx: #6ee7b7;
+  --red-bg: #3b1d1d;   --red-tx: #fca5a5;
+  background-color: var(--bg);
+  color: var(--ink);
+}
+body.dark-mode a { color: #5eead4; }
+body.dark-mode .card,
+body.dark-mode .container,
+body.dark-mode .doc,
+body.dark-mode .tbl-wrap,
+body.dark-mode th,
+body.dark-mode td,
+body.dark-mode .toolbar,
+body.dark-mode .cookies-bar { background-color: var(--card); color: var(--ink); border-color: var(--line); }
+body.dark-mode table.tbl th { background: #262626; color: #d1fae5; border-color: var(--line); }
+body.dark-mode table.tbl td { border-bottom-color: var(--line); }
+body.dark-mode input,
+body.dark-mode select,
+body.dark-mode textarea {
+  background-color: #2a2a2a; color: #fff; border-color: #444;
+}
+body.dark-mode label, body.dark-mode h1, body.dark-mode h2, body.dark-mode h3,
+body.dark-mode h4, body.dark-mode h5, body.dark-mode h6,
+body.dark-mode p, body.dark-mode strong, body.dark-mode li,
+body.dark-mode .kv b, body.dark-mode .kv-table td { color: var(--ink); }
+body.dark-mode .doc-desc, body.dark-mode .doc-label,
+body.dark-mode .page-head .sub, body.dark-mode .chart-card h3 { color: var(--ink); }
+body.dark-mode .chart-card, body.dark-mode .chart-card h3 { background: var(--card); }
+body.dark-mode .thumb, body.dark-mode .media-item { background: #262626; }
+body.dark-mode code.qr-url { background: #2a2a2a; color: #d1fae5; }
+body.dark-mode button.btn-ghost { background: #2a2a2a; color: var(--ink); border-color: #4a5568; }
+body.dark-mode button:not(.btn-primary):not(.btn-danger):not(.btn-wa):not(.btn-ai) { background-color: #2d3748; color: #fff; border-color: #4a5568; }
+@media print {
+  body.dark-mode, body.dark-mode .card, body.dark-mode .doc,
+  body.dark-mode .tbl-wrap, body.dark-mode table, body.dark-mode td,
+  body.dark-mode th { background: #fff !important; color: #000 !important; }
+  .btn-dark-toggle { display: none; }
+}
