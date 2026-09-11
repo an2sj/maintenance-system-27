@@ -143,7 +143,7 @@ def auth_token() -> str:
 
 def is_public_path(path: str) -> bool:
     return (
-        path in ("/login", "/logout", "/healthz", "/promo")
+        path in ("/login", "/logout", "/healthz", "/promo", "/guide")
         or path.startswith(("/report", "/track/", "/qr", "/poster-qr", "/media", "/static"))
     )
 
@@ -1791,6 +1791,11 @@ def poster_page(request: Request, location: str = ""):
 
 @app.get("/promo", response_class=HTMLResponse)
 def promo_page(request: Request):
+    return templates.TemplateResponse(request, "promo.html", context(request))
+
+
+@app.get("/guide", response_class=HTMLResponse)
+def guide_page(request: Request):
     return templates.TemplateResponse(request, "promo.html", context(request))
 
 

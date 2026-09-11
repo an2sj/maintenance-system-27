@@ -123,6 +123,7 @@
       <div class="field wide">
         <button class="btn btn-primary btn-block btn-lg" type="submit">{{ tr('btn_submit') }}</button>
         <p class="muted center" style="margin-top:10px;">{{ 'بعد الإرسال يدقّق قسم الصيانة البلاغ ويحوّله إلى أمر عمل رسمي.' if LANG == 'ar' else 'After submission, maintenance reviews and converts to an official work order.' }}</p>
+        <p class="muted center" style="margin-top:4px;">📺 <a href="/guide{% if LANG == 'en' %}?lang=en{% endif %}">{{ 'شاهد دليل الاستخدام بالفيديو' if LANG == 'ar' else 'Watch the usage guide video' }}</a></p>
       </div>
     </form>
   </div>
