@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="{{ LANG }}" dir="{{ 'rtl' if LANG == 'ar' else 'ltr' }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ 'فيديو تشويقي' if LANG == 'ar' else 'Promo Video' }} | {{ HOSPITAL_NAME }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css?v=7">
+  <style>
+    .promo-wrap { max-width: 1080px; margin: 0 auto; padding: 26px 18px 60px; }
+    .promo-card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 22px;
+      box-shadow: var(--shadow); }
+    .promo-card video { width: 100%; border-radius: 12px; display: block; background: #000;
+      aspect-ratio: 16/9; }
+    .promo-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 18px; }
+    .promo-actions a { flex: 1; min-width: 180px; }
+  </style>
+</head>
+<body class="auth-body">
+
+  <div class="promo-wrap">
+    <div class="promo-card">
+      <h1 style="text-align:center; margin:0 0 6px; font-weight:900;">{{ 'نظام إدارة الصيانة وأوامر العمل' if LANG == 'ar' else 'Maintenance Work Orders System' }} — {{ 'فيديو تشويقي' if LANG == 'ar' else 'Promo Video' }}</h1>
+      <p style="text-align:center; color:var(--muted); margin:0 0 16px;">
+        {{ ORG_RIGHT }} · {{ DEPARTMENT_NAME }} · {{ HOSPITAL_NAME }}
+      </p>
+
+      <video controls preload="metadata" poster="/static/promo-poster.jpg">
+        <source src="/static/promo.mp4" type="video/mp4">
+        {{ 'متصفحك لا يدعم تشغيل الفيديو.' if LANG == 'ar' else 'Your browser does not support video playback.' }}
+      </video>
+
+      <div class="promo-actions">
+        <a class="btn btn-primary" href="/static/promo.mp4" download="promo.mp4">⬇ {{ 'تحميل الفيديو' if LANG == 'ar' else 'Download Video' }}</a>
+        <a class="btn btn-ghost" href="/report">{{ 'بلاغ عام — جرّب النظام' if LANG == 'ar' else 'Public Report — Try the System' }}</a>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
