@@ -57,7 +57,7 @@ except ZoneInfoNotFoundError:
 HOSPITAL_NAME = os.environ.get("HOSPITAL_NAME", "مستشفى الأمير محمد بن ناصر")
 ORG_RIGHT = os.environ.get("ORG_RIGHT", "تجمع جازان الصحي")
 ORG_LEFT = os.environ.get("ORG_LEFT", "")  # أُزيلت شركة المقاولات نهائياً
-DEPARTMENT_NAME = os.environ.get("DEPARTMENT_NAME", "إدارة الصيانة والعمليات")
+DEPARTMENT_NAME = os.environ.get("DEPARTMENT_NAME", "إدارة الصيانة")
 
 # شعار تجمع جازان الصحي (يُستخدم في الهيدر وفي مركز رمز QR)
 LOGO_PATH = STATIC_DIR / "logo.jpg"
